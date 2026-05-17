@@ -1,1 +1,104 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lions Attendance System - District 325 F</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+        .present-row { border-left: 5px solid #22c55e; }
+        .absent-row { border-left: 5px solid #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
 
+    <script>
+        const SCRIPT_URL = "यहाँ_आफ्नो_GOOGLE_WEB_APP_URL_पेस्ट_गर्नुहोस्";
+
+        // १. हाजिर गर्ने फङ्सन (User Side)
+        async function submitAttendance() {
+            const lionsId = document.getElementById('lionsId').value;
+            if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस्।");
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const payload = {
+                    action: "submitAttendance",
+                    lionsId: lionsId,
+                    lat: pos.coords.latitude,
+                    lon: pos.coords.longitude,
+                    deviceId: navigator.userAgent
+                };
+
+                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                if(response.ok) alert("हाजिर सफल भयो!");
+            }, () => alert("कृपया लोकेसन पर्मिसन दिनुहोस्।"));
+        }
+
+        // २. एडमिन लगइन (Admin Side)
+        async function adminLogin() {
+            const user = document.getElementById('user').value;
+            const pass = document.getElementById('pass').value;
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
+            });
+            const result = await response.json();
+
+            if(result.status === "success") {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('reportDashboard').classList.remove('hidden');
+                loadReport();
+            } else {
+                alert(result.message);
+            }
+        }
+
+        // ३. रिपोर्ट लोड गर्ने (हाजिर भएका माथि, बाँकी तल)
+        async function loadReport() {
+            const response = await fetch(SCRIPT_URL + "?action=getReport");
+            const data = await response.json();
+            
+            let html = `<h3 class="font-bold text-green-600 mb-2">उपस्थित साथीहरू (${data.present.length})</h3>`;
+            data.present.forEach(p => {
+                html += `<div class="bg-white p-3 mb-2 shadow-sm present-row font-semibold">✅ ${p.name} - <span class="text-gray-500 text-sm">${p.club}</span></div>`;
+            });
+
+            html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (${data.absent.length})</h3>`;
+            data.absent.forEach(a => {
+                html += `<div class="bg-white p-3 mb-2 shadow-sm absent-row">❌ ${a.name} - <span class="text-gray-500 text-sm">${a.club}</span></div>`;
+            });
+
+            document.getElementById('reportData').innerHTML = html;
+        }
+    </script>
+
+    <div class="max-w-md mx-auto p-6">
+        <!-- USER ATTENDANCE SECTION -->
+        <div id="userSection" class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-2xl font-bold text-blue-900 mb-4 text-center">Lions District 325 F</h2>
+            <p class="text-center text-gray-600 mb-4">Cabinet Officers' Schooling Attendance</p>
+            <input type="text" id="lionsId" placeholder="Lions ID / Reg No" class="w-full border p-2 mb-4 rounded">
+            <button onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold">SUBMIT ATTENDANCE</button>
+        </div>
+
+        <hr class="my-10 border-gray-300">
+
+        <!-- ADMIN LOGIN SECTION -->
+        <div id="loginForm" class="bg-gray-200 p-6 rounded-lg shadow-md">
+            <h3 class="font-bold mb-4">Admin Login (Report View)</h3>
+            <input type="text" id="user" placeholder="Username" class="w-full border p-2 mb-2 rounded">
+            <input type="password" id="pass" placeholder="Password" class="w-full border p-2 mb-4 rounded">
+            <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded">LOGIN ADMIN</button>
+        </div>
+
+        <!-- REPORT DASHBOARD SECTION (Initially Hidden) -->
+        <div id="reportDashboard" class="hidden mt-6">
+            <h2 class="text-xl font-bold mb-4">Live Attendance Report</h2>
+            <button onclick="loadReport()" class="bg-green-600 text-white px-4 py-2 rounded mb-4 text-sm">Refresh Data</button>
+            <div id="reportData"></div>
+        </div>
+    </div>
+</body>
+</html>
