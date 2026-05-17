@@ -65,7 +65,7 @@
 
                 const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const msg = await response.text();
-                alert(msg === "Success" ? "हाजिर सफल भयो!" : msg);
+                alert(msg === "Success" ? "हाजिर सफल भयो !" : msg);
                 loadSystemStatus();
             }, () => {
                 alert("कृपया मोबाइलको GPS/Location अन गरी पर्मिसन दिनुहोस् ।");
@@ -112,7 +112,7 @@
         }
 
         function startLiveAttendance(day) {
-            alert(day + " हाजिर प्रणाली सुरु भयो। ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस्।");
+            alert(day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।");
         }
 
         // लाइव रिपोर्ट फिल्टर (उपस्थित र अनुपस्थित सूची छुट्ट्याउने)
@@ -130,7 +130,7 @@
             data.absent.forEach(a => {
                 html += `<div class="bg-white p-3 mb-2 shadow-sm absent-row flex justify-between items-center">
                     <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club} [${a.desig}]</span></div>
-                    <button onclick="alert('यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस्।')" class="bg-blue-650 bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
+                    <button onclick="alert('यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।')" class="bg-blue-650 bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
                 </div>`;
             });
 
