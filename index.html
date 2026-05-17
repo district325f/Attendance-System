@@ -1,170 +1,125 @@
-<!DOCTYPE html>
-<html lang="ne">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lions Attendance System - District 325 F</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .hidden { display: none; }
-        .present-row { border-left: 5px solid #22c55e; }
-        .absent-row { border-left: 5px solid #ef4444; }
-    </style>
-</head>
-<body class="bg-gray-100 min-h-screen">
+function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var action = data.action;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    <script>
-        const SCRIPT_URL = "तपाईँको_GOOGLE_WEB_APP_URL_यहाँ_हाल्नुहोस्";
-
-        // एप खुल्दा सिटबाट कुन दिन ACTIVE छ भनेर चेक गर्ने र कम्बुबक्स मिलाउने
-        async function loadSystemStatus() {
-            const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
-            const status = await response.json();
-            
-            const daySelect = document.getElementById('attendanceDay');
-            const dayText = document.getElementById('currentDayText');
-
-            if (status.day1 === "ACTIVE") {
-                daySelect.value = "Day-1";
-                daySelect.options[1].disabled = true; // Day-2 बन्द
-                dayText.innerText = "Attendance Day-1 (Active)";
-            } else if (status.day2 === "ACTIVE") {
-                daySelect.value = "Day-2";
-                daySelect.options[0].disabled = true; // Day-1 बन्द
-                dayText.innerText = "Attendance Day-2 (Active)";
-            } else {
-                daySelect.options[0].disabled = true;
-                daySelect.options[1].disabled = true;
-                dayText.innerText = "Attendance Closed (बन्द छ)";
-            }
+  // १. एडमिन लगइन र सिटको Active/Deactive स्थिति जाँच
+  if (action === "adminLogin") {
+    var adminSheet = ss.getSheetByName("Admin_Control");
+    var admins = adminSheet.getDataRange().getValues();
+    
+    for (var i = 1; i < admins.length; i++) {
+      if (admins[i][0] == data.username && admins[i][1] == data.password) {
+        if (admins[i][2] === "Active") {
+          // Attendance_Settings सिटबाट हालको स्थिति तान्ने
+          var attSettings = ss.getSheetByName("Attendance_Settings").getDataRange().getValues();
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            day1Active: attSettings[1][1], // सिटको Day-1 को भ्यालु (Active/Deactive)
+            day2Active: attSettings[2][1]  // सिटको Day-2 को भ्यालु (Active/Deactive)
+          }));
+        } else {
+          return ContentService.createTextOutput(JSON.stringify({status: "deactive", message: "तपाईँको एडमिन एकाउन्ट डिएक्टिभ छ।"}));
         }
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({status: "fail", message: "युजरनेम वा पासवर्ड गलत छ।"}));
+  }
 
-        // १. हाजिर गर्ने फङ्सन
-        async function submitAttendance() {
-            const lionsId = document.getElementById('lionsId').value;
-            const selectedDay = document.getElementById('attendanceDay').value;
-            if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस्।");
+  // २. सहभागीले मोबाइलबाट हाजिर सबमिट गर्दा
+  if (action === "submitAttendance") {
+    var attSettings = ss.getSheetByName("Attendance_Settings").getDataRange().getValues();
+    var geoSettings = ss.getSheetByName("Geofence_Settings").getDataRange().getValues();
+    var memberSheet = ss.getSheetByName("Registered_Members");
+    var members = memberSheet.getDataRange().getValues();
+    var logSheet = ss.getSheetByName("Attendance_Log");
+    var logs = logSheet.getDataRange().getValues();
 
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const payload = {
-                    action: "submitAttendance",
-                    lionsId: lionsId,
-                    day: selectedDay,
-                    lat: pos.coords.latitude,
-                    lon: pos.coords.longitude,
-                    deviceId: navigator.userAgent
-                };
+    // क) गुगल सिटमा त्यो दिन Active छ कि छैन चेक गर्ने
+    if (data.day === "Day-1" && attSettings[1][1] !== "Active") return ContentService.createTextOutput("Day-1 एटेन्डेन्स मुख्य सिटबाट बन्द (Deactive) गरिएको छ।");
+    if (data.day === "Day-2" && attSettings[2][1] !== "Active") return ContentService.createTextOutput("Day-2 एटेन्डेन्स मुख्य सिटबाट बन्द (Deactive) गरिएको छ।");
 
-                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const msg = await response.text();
-                alert(msg === "Success" ? "हाजिर सफल भयो!" : msg);
-            }, () => alert("कृपया लोकेसन पर्मिसन दिनुहोस्।"));
-        }
+    // ख) एउटा लायन्स आईडीबाट सोही दिन दोहोर्‍याएर हाजिर गर्न नदिने (Duplicate Lock)
+    for (var i = 1; i < logs.length; i++) {
+      if (String(logs[i][1]) === String(data.lionsId) && String(logs[i][5]) === String(data.day)) {
+        return ContentService.createTextOutput("माफ गर्नुहोला! यो सदस्यता नम्बरको हाजिर आजको लागि पहिले नै भइसकेको छ।");
+      }
+    }
 
-        // २. एडमिन लगइन र ड्यासबोर्ड खोल्ने
-        async function adminLogin() {
-            const user = document.getElementById('user').value;
-            const pass = document.getElementById('pass').value;
+    // ग) Registered_Members बाट सहभागीको विवरण (नाम, क्लब, पद) खोज्ने
+    var foundMember = null;
+    for (var j = 1; j < members.length; j++) {
+      if (String(members[j][0]) === String(data.lionsId)) {
+        foundMember = { name: members[j][1], club: members[j][2], desig: members[j][3] };
+        break;
+      }
+    }
 
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
-            });
-            const result = await response.json();
+    if (!foundMember) return ContentService.createTextOutput("माफ गर्नुहोला, यो लायन्स आईडी/दर्ता नम्बर सिस्टममा फेला परेन।");
 
-            if(result.day1) {
-                document.getElementById('loginForm').classList.add('hidden');
-                document.getElementById('reportDashboard').classList.remove('hidden');
-                updateAdminButtonUI(result.day1, result.day2);
-                loadReport();
-            } else {
-                alert(result.message || "विवरण मिलेन");
-            }
-        }
+    // घ) Geofence दुरी जाँच (B2 र B3 बाट ल्याट/लङ्ग र B4 बाट रेडियस पढ्ने)
+    var vLat = geoSettings[1][1];
+    var vLon = geoSettings[2][1];
+    var radius = geoSettings[3][1];
+    var dist = getDistance(data.lat, data.lon, vLat, vLon);
 
-        // एडमिन प्यानलमा स्टार्ट/इन्ड बटनको रङ र टेक्स्ट मिलाउने
-        function updateAdminButtonUI(d1, d2) {
-            document.getElementById('d1StatusText').innerText = "Status: " + d1;
-            document.getElementById('d2StatusText').innerText = "Status: " + d2;
-        }
+    if (dist > radius) return ContentService.createTextOutput("असफल! तपाईँ कार्यक्रम हल बाहिर हुनुहुन्छ। (दुरी: " + Math.round(dist) + " मिटर)");
 
-        // एडमिनबाट सिटको एटेन्डेन्स सुरु वा बन्द गर्ने फङ्सन
-        async function changeAttendanceStatus(day, targetStatus) {
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "updateStatus", day: day, status: targetStatus })
-            });
-            alert(day + " लाई " + targetStatus + " गरियो।");
-            adminLogin(); // रिफ्रेस स्टेटस
-        }
+    // ङ) सबै कुरा मिलेपछि ८ वटा कोलममा रेकर्ड सेभ गर्ने
+    logSheet.appendRow([
+      new Date(), 
+      data.lionsId, 
+      foundMember.name, 
+      foundMember.club, 
+      foundMember.desig, 
+      data.day, 
+      Math.round(dist) + "m", 
+      data.deviceId
+    ]);
 
-        // ३. रिपोर्ट लोड गर्ने
-        async function loadReport() {
-            const response = await fetch(SCRIPT_URL + "?action=getReport");
-            const data = await response.json();
-            
-            let html = `<h3 class="font-bold text-green-600 mb-2">उपस्थित साथीहरू (${data.present.length})</h3>`;
-            data.present.forEach(p => {
-                html += `<div class="bg-white p-3 mb-2 shadow-sm present-row font-semibold">✅ ${p.name} - <span class="text-gray-500 text-sm">${p.club}</span></div>`;
-            });
+    return ContentService.createTextOutput("Success");
+  }
+}
 
-            html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (${data.absent.length})</h3>`;
-            data.absent.forEach(a => {
-                html += `<div class="bg-white p-3 mb-2 shadow-sm absent-row">❌ ${a.name} - <span class="text-gray-500 text-sm">${a.club}</span></div>`;
-            });
+function doGet(e) {
+  var action = e.parameter.action;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-            document.getElementById('reportData').innerHTML = html;
-        }
+  // मोबाइलको कम्बुबक्स नियन्त्रण गर्न सिटको स्टाटस पठाउने
+  if (action === "getSystemStatus") {
+    var attSettings = ss.getSheetByName("Attendance_Settings").getDataRange().getValues();
+    return ContentService.createTextOutput(JSON.stringify({day1: attSettings[1][1], day2: attSettings[2][1]})).setMimeType(ContentService.MimeType.JSON);
+  }
 
-        window.addEventListener('DOMContentLoaded', loadSystemStatus);
-    </script>
+  // एडमिन ड्यासबोर्डका लागि लाइभ रिपोर्ट (को आयो, को बाँकी छ) जेनेरेट गर्ने
+  if (action === "getReport") {
+    var members = ss.getSheetByName("Registered_Members").getDataRange().getValues();
+    var logs = ss.getSheetByName("Attendance_Log").getDataRange().getValues();
+    
+    var day1Present = [], day2Present = [];
+    for(var i=1; i<logs.length; i++) {
+      if(logs[i][5] === "Day-1") day1Present.push(String(logs[i][1]));
+      if(logs[i][5] === "Day-2") day2Present.push(String(logs[i][1]));
+    }
 
-    <div class="max-w-md mx-auto p-6" style="margin-top: 20px;">
-        <div id="userSection" class="bg-white p-6 rounded-lg shadow-lg mb-6">
-            <h2 class="text-2xl font-bold text-blue-900 mb-1 text-center">Lions International</h2>
-            <h3 class="text-xl font-semibold text-blue-800 mb-1 text-center">District 325 F</h3>
-            <p id="currentDayText" class="text-center font-medium text-gray-700 mb-4">लोड हुँदैछ...</p>
-            
-            <label class="block text-sm font-medium text-gray-600 mb-1">Select Attendance Day:</label>
-            <select id="attendanceDay" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700">
-                <option value="Day-1">Attendance Day-1</option>
-                <option value="Day-2">Attendance Day-2</option>
-            </select>
+    var presentList = [], absentList = [];
+    for (var i = 1; i < members.length; i++) {
+      var m = { id: members[i][0], name: members[i][1], club: members[i][2], desig: members[i][3] };
+      if (day1Present.indexOf(String(m.id)) !== -1 || day2Present.indexOf(String(m.id)) !== -1) {
+        presentList.push(m);
+      } else {
+        absentList.push(m);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({present: presentList, absent: absentList})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-            <input type="text" id="lionsId" placeholder="Lions ID / Reg No" class="w-full border p-2 mb-4 rounded">
-            <button onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition">SUBMIT ATTENDANCE</button>
-        </div>
-
-        <hr class="my-10 border-gray-300">
-
-        <div id="loginForm" class="bg-gray-200 p-6 rounded-lg shadow-md border-t-4 border-gray-700">
-            <h3 class="text-lg font-bold text-gray-800 text-center mb-1">Admin Login</h3>
-            <p class="text-xs text-red-600 font-semibold text-center mb-4">*(एडमिन प्रयोगको लागि मात्र)*</p>
-            
-            <input type="text" id="user" placeholder="Username" class="w-full border p-2 mb-2 rounded bg-white">
-            <input type="password" id="pass" placeholder="Password" class="w-full border p-2 mb-4 rounded bg-white">
-            <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded font-bold hover:bg-gray-900 transition">LOGIN ADMIN</button>
-        </div>
-
-        <div id="reportDashboard" class="hidden mt-6 bg-white p-4 rounded-lg shadow-lg">
-            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">Admin Control Room</h2>
-            
-            <div class="mb-4 p-2 bg-gray-50 rounded border">
-                <span class="font-bold text-sm block mb-1">Day-1 Attendance: <span id="d1StatusText" class="text-blue-600"></span></span>
-                <button onclick="changeAttendanceStatus('Day-1', 'ACTIVE')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold mr-2">START</button>
-                <button onclick="changeAttendanceStatus('Day-1', 'INACTIVE')" class="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold">END</button>
-            </div>
-
-            <div class="mb-6 p-2 bg-gray-50 rounded border">
-                <span class="font-bold text-sm block mb-1">Day-2 Attendance: <span id="d2StatusText" class="text-blue-600"></span></span>
-                <button onclick="changeAttendanceStatus('Day-2', 'ACTIVE')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold mr-2">START</button>
-                <button onclick="changeAttendanceStatus('Day-2', 'INACTIVE')" class="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold">END</button>
-            </div>
-
-            <h2 class="text-xl font-bold mb-2 text-gray-800">Live Attendance Report</h2>
-            <button onclick="loadReport()" class="bg-green-600 text-white px-4 py-2 rounded mb-4 text-sm font-semibold shadow hover:bg-green-700 transition">Refresh Data</button>
-            <div id="reportData"></div>
-        </div>
-    </div>
-</body>
-</html>
+// Haversine दुरी सूत्र
+function getDistance(lat1, lon1, lat2, lon2) {
+  var R = 6371e3;
+  var p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+  var dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) * R;
+}
