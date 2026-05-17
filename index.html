@@ -16,7 +16,30 @@
     <script>
         const SCRIPT_URL = "तपाईँको_GOOGLE_WEB_APP_URL_यहाँ_हाल्नुहोस्";
 
-        // १. हाजिर गर्ने फङ्सन (User Side)
+        // एप खुल्दा सिटबाट कुन दिन ACTIVE छ भनेर चेक गर्ने र कम्बुबक्स मिलाउने
+        async function loadSystemStatus() {
+            const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
+            const status = await response.json();
+            
+            const daySelect = document.getElementById('attendanceDay');
+            const dayText = document.getElementById('currentDayText');
+
+            if (status.day1 === "ACTIVE") {
+                daySelect.value = "Day-1";
+                daySelect.options[1].disabled = true; // Day-2 बन्द
+                dayText.innerText = "Attendance Day-1 (Active)";
+            } else if (status.day2 === "ACTIVE") {
+                daySelect.value = "Day-2";
+                daySelect.options[0].disabled = true; // Day-1 बन्द
+                dayText.innerText = "Attendance Day-2 (Active)";
+            } else {
+                daySelect.options[0].disabled = true;
+                daySelect.options[1].disabled = true;
+                dayText.innerText = "Attendance Closed (बन्द छ)";
+            }
+        }
+
+        // १. हाजिर गर्ने फङ्सन
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
@@ -33,11 +56,12 @@
                 };
 
                 const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                if(response.ok) alert("हाजिर सफल भयो!");
+                const msg = await response.text();
+                alert(msg === "Success" ? "हाजिर सफल भयो!" : msg);
             }, () => alert("कृपया लोकेसन पर्मिसन दिनुहोस्।"));
         }
 
-        // २. एडमिन लगइन (Admin Side)
+        // २. एडमिन लगइन र ड्यासबोर्ड खोल्ने
         async function adminLogin() {
             const user = document.getElementById('user').value;
             const pass = document.getElementById('pass').value;
@@ -48,16 +72,33 @@
             });
             const result = await response.json();
 
-            if(result.status === "success") {
+            if(result.day1) {
                 document.getElementById('loginForm').classList.add('hidden');
                 document.getElementById('reportDashboard').classList.remove('hidden');
+                updateAdminButtonUI(result.day1, result.day2);
                 loadReport();
             } else {
-                alert(result.message);
+                alert(result.message || "विवरण मिलेन");
             }
         }
 
-        // ३. रिपोर्ट लोड गर्ने (हाजिर भएका माथि, बाँकी तल)
+        // एडमिन प्यानलमा स्टार्ट/इन्ड बटनको रङ र टेक्स्ट मिलाउने
+        function updateAdminButtonUI(d1, d2) {
+            document.getElementById('d1StatusText').innerText = "Status: " + d1;
+            document.getElementById('d2StatusText').innerText = "Status: " + d2;
+        }
+
+        // एडमिनबाट सिटको एटेन्डेन्स सुरु वा बन्द गर्ने फङ्सन
+        async function changeAttendanceStatus(day, targetStatus) {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "updateStatus", day: day, status: targetStatus })
+            });
+            alert(day + " लाई " + targetStatus + " गरियो।");
+            adminLogin(); // रिफ्रेस स्टेटस
+        }
+
+        // ३. रिपोर्ट लोड गर्ने
         async function loadReport() {
             const response = await fetch(SCRIPT_URL + "?action=getReport");
             const data = await response.json();
@@ -74,13 +115,15 @@
 
             document.getElementById('reportData').innerHTML = html;
         }
+
+        window.addEventListener('DOMContentLoaded', loadSystemStatus);
     </script>
 
-    <div class="max-w-md mx-auto p-6">
+    <div class="max-w-md mx-auto p-6" style="margin-top: 20px;">
         <div id="userSection" class="bg-white p-6 rounded-lg shadow-lg mb-6">
             <h2 class="text-2xl font-bold text-blue-900 mb-1 text-center">Lions International</h2>
             <h3 class="text-xl font-semibold text-blue-800 mb-1 text-center">District 325 F</h3>
-            <p class="text-center font-medium text-gray-700 mb-4">Attendance Day-1</p>
+            <p id="currentDayText" class="text-center font-medium text-gray-700 mb-4">लोड हुँदैछ...</p>
             
             <label class="block text-sm font-medium text-gray-600 mb-1">Select Attendance Day:</label>
             <select id="attendanceDay" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700">
@@ -103,8 +146,22 @@
             <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded font-bold hover:bg-gray-900 transition">LOGIN ADMIN</button>
         </div>
 
-        <div id="reportDashboard" class="hidden mt-6">
-            <h2 class="text-xl font-bold mb-4">Live Attendance Report</h2>
+        <div id="reportDashboard" class="hidden mt-6 bg-white p-4 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">Admin Control Room</h2>
+            
+            <div class="mb-4 p-2 bg-gray-50 rounded border">
+                <span class="font-bold text-sm block mb-1">Day-1 Attendance: <span id="d1StatusText" class="text-blue-600"></span></span>
+                <button onclick="changeAttendanceStatus('Day-1', 'ACTIVE')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold mr-2">START</button>
+                <button onclick="changeAttendanceStatus('Day-1', 'INACTIVE')" class="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold">END</button>
+            </div>
+
+            <div class="mb-6 p-2 bg-gray-50 rounded border">
+                <span class="font-bold text-sm block mb-1">Day-2 Attendance: <span id="d2StatusText" class="text-blue-600"></span></span>
+                <button onclick="changeAttendanceStatus('Day-2', 'ACTIVE')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold mr-2">START</button>
+                <button onclick="changeAttendanceStatus('Day-2', 'INACTIVE')" class="bg-red-600 text-white text-xs px-3 py-1 rounded font-bold">END</button>
+            </div>
+
+            <h2 class="text-xl font-bold mb-2 text-gray-800">Live Attendance Report</h2>
             <button onclick="loadReport()" class="bg-green-600 text-white px-4 py-2 rounded mb-4 text-sm font-semibold shadow hover:bg-green-700 transition">Refresh Data</button>
             <div id="reportData"></div>
         </div>
