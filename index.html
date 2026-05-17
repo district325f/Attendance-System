@@ -14,10 +14,8 @@
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between">
 
     <script>
-        // तपाईँको आफ्नै गुगल एप्स स्क्रिप्ट लिंक यहाँ लक गरिएको छ
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
 
-        // लोड हुँदा सिटको वास्तविक स्थिति हेरेर प्रयोगकर्ताको कम्बुबक्स नियन्त्रण गर्ने
         async function loadSystemStatus() {
             try {
                 const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
@@ -46,7 +44,6 @@
             }
         }
 
-        // सहभागीले हाजिर बुझाउँदा
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
@@ -74,16 +71,13 @@
             });
         }
 
-        // पेजहरू बीच आउजाउ गर्ने नियन्त्रक (View Switcher)
         function showPage(pageId) {
             document.getElementById('userSection').classList.add('hidden');
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('reportDashboard').classList.add('hidden');
-
             document.getElementById(pageId).classList.remove('hidden');
         }
 
-        // एडमिन लगइन
         async function adminLogin() {
             const user = document.getElementById('user').value;
             const pass = document.getElementById('pass').value;
@@ -96,7 +90,6 @@
 
             if(result.status === "success") {
                 showPage('reportDashboard');
-                // सिटको Active/Deactive अनुसार बटनको अवस्था देखाउने
                 updateAdminPanelUI(result.day1Active, result.day2Active);
                 loadReport();
             } else {
@@ -104,7 +97,6 @@
             }
         }
 
-        // सिटको स्थिति अनुसार बटन कन्ट्रोल (सिटमा Active भए मात्र START थिच्न मिल्ने)
         function updateAdminPanelUI(d1, d2) {
             document.getElementById('d1SheetStatus').innerText = "Sheet Status: " + d1;
             document.getElementById('d2SheetStatus').innerText = "Sheet Status: " + d2;
@@ -123,7 +115,6 @@
             alert(day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।");
         }
 
-        // लाइव रिपोर्ट फिल्टर (उपस्थित र अनुपस्थित सूची छुट्ट्याउने)
         async function loadReport() {
             document.getElementById('reportData').innerHTML = "रिपोर्ट लोड हुँदैछ...";
             const response = await fetch(SCRIPT_URL + "?action=getReport");
@@ -167,7 +158,6 @@
 
         <div id="loginForm" class="hidden bg-gray-200 p-6 rounded-lg shadow-md border-t-4 border-gray-700">
             <h3 class="text-lg font-bold text-gray-800 text-center mb-4">Admin Login Panel</h3>
-            
             <input type="text" id="user" placeholder="Username" class="w-full border p-2 mb-2 rounded bg-white">
             <input type="password" id="pass" placeholder="Password" class="w-full border p-2 mb-4 rounded bg-white">
             <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded font-bold hover:bg-gray-900 transition mb-2">LOGIN ADMIN</button>
