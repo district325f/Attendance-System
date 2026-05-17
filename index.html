@@ -126,7 +126,7 @@
                 html += `<div class="bg-white p-3 mb-2 shadow-sm present-row font-semibold">✅ ${p.name} - <span class="text-xs text-gray-500">${p.club} [${p.desig}]</span></div>`;
             });
 
-            html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (Absent List - ढिलो आउने यहाँ हेर्ने) (${data.absent.length})</h3>`;
+            html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
             data.absent.forEach(a => {
                 html += `<div class="bg-white p-3 mb-2 shadow-sm absent-row flex justify-between items-center">
                     <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club} [${a.desig}]</span></div>
