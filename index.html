@@ -14,7 +14,7 @@
 <body class="bg-gray-100 min-h-screen">
 
     <script>
-        const SCRIPT_URL = "यहाँ_आफ्नो_GOOGLE_WEB_APP_URL_पेस्ट_गर्नुहोस्";
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
 
         // लोड हुँदा सिटको वास्तविक स्थिति हेरेर प्रयोगकर्ताको कम्बुबक्स नियन्त्रण गर्ने
         async function loadSystemStatus() {
@@ -41,7 +41,7 @@
                     dayText.innerText = "Attendance Closed (सिटबाट बन्द छ)";
                 }
             } catch(e) {
-                document.getElementById('currentDayText').innerText = "सिस्टम जडानमा समस्या भयो।";
+                document.getElementById('currentDayText').innerText = "सिस्टम जडानमा समस्या भयो ।";
             }
         }
 
@@ -49,7 +49,7 @@
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
-            if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस्।");
+            if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस् ।");
 
             document.getElementById('currentDayText').innerText = "लोकेसन र विवरण जाँच्दै...";
 
@@ -68,7 +68,7 @@
                 alert(msg === "Success" ? "हाजिर सफल भयो!" : msg);
                 loadSystemStatus();
             }, () => {
-                alert("कृपया मोबाइलको GPS/Location अन गरी पर्मिसन दिनुहोस्।");
+                alert("कृपया मोबाइलको GPS/Location अन गरी पर्मिसन दिनुहोस् ।");
                 loadSystemStatus();
             });
         }
@@ -92,7 +92,7 @@
                 updateAdminPanelUI(result.day1Active, result.day2Active);
                 loadReport();
             } else {
-                alert(result.message || "विवरण मिलेन वा अकाउन्ट डिएक्टिभ छ।");
+                alert(result.message || "विवरण मिलेन वा अकाउन्ट डिएक्टिभ छ ।");
             }
         }
 
