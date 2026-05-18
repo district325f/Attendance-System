@@ -21,7 +21,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-16">
+<body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-20">
 
     <script>
         // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
@@ -62,22 +62,22 @@
                 const status = await response.json();
                 const daySelect = document.getElementById('attendanceDay');
 
-                if (status.day1 === "Active" && status.day2 === "Active") {
+                let activeDays = [];
+                if(status.day1 === "Active") activeDays.push("Day-1");
+                if(status.day2 === "Active") activeDays.push("Day-2");
+                if(status.day3 === "Active") activeDays.push("Day-3");
+
+                // सिट अनुसार ड्रपडाउन अप्सनहरू एनेबल/डिसेबल गर्ने
+                daySelect.options[0].disabled = (status.day1 !== "Active");
+                daySelect.options[1].disabled = (status.day2 !== "Active");
+                daySelect.options[2].disabled = (status.day3 !== "Active");
+
+                if(activeDays.length > 0) {
+                    daySelect.value = activeDays[activeDays.length - 1]; 
                     statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-green-100 text-green-800 mb-4";
-                    statusIndicator.innerText = "● System Live: Day-1 & Day-2 Active";
-                } else if (status.day1 === "Active") {
-                    daySelect.value = "Day-1";
-                    daySelect.options[1].disabled = true;
-                    statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-green-50 text-green-700 mb-4";
-                    statusIndicator.innerText = "● Attendance Status: Day-1 (Active)";
-                } else if (status.day2 === "Active") {
-                    daySelect.value = "Day-2";
-                    daySelect.options[0].disabled = true;
-                    statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-green-50 text-green-700 mb-4";
-                    statusIndicator.innerText = "● Attendance Status: Day-2 (Active)";
+                    statusIndicator.innerText = "● System Live: " + activeDays.join(" & ") + " Active";
                 } else {
-                    daySelect.options[0].disabled = true;
-                    daySelect.options[1].disabled = true;
+                    daySelect.value = "Day-1";
                     statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4";
                     statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
                 }
@@ -144,7 +144,6 @@
             document.getElementById(pageId).classList.remove('hidden');
         }
 
-        // एडमिन लगइन फङ्सन
         async function adminLogin() {
             const user = document.getElementById('user').value;
             const pass = document.getElementById('pass').value;
@@ -165,7 +164,7 @@
 
                 if(result.status === "success") {
                     showPage('reportDashboard');
-                    updateAdminPanelUI(result.day1Active, result.day2Active);
+                    updateAdminPanelUI(result.day1Active, result.day2Active, result.day3Active);
                     loadReport();
                 } else {
                     showDialog("लगइन असफल", result.message || "विवरण मिलेन ।", false);
@@ -176,28 +175,29 @@
             }
         }
 
-        function updateAdminPanelUI(d1, d2) {
+        function updateAdminPanelUI(d1, d2, d3) {
             document.getElementById('d1SheetStatus').innerText = "Status: " + d1;
             document.getElementById('d2SheetStatus').innerText = "Status: " + d2;
+            document.getElementById('d3SheetStatus').innerText = "Status: " + d3;
             
-            if(d1 !== "Active") {
-                document.getElementById('btnStartD1').disabled = true;
-                document.getElementById('btnStartD1').className = "bg-gray-400 text-white text-xs px-3 py-1 rounded font-bold cursor-not-allowed";
+            setButtonStyle('btnStartD1', d1);
+            setButtonStyle('btnStartD2', d2);
+            setButtonStyle('btnStartD3', d3);
+        }
+
+        function setButtonStyle(btnId, status) {
+            const btn = document.getElementById(btnId);
+            if(status !== "Active") {
+                btn.disabled = true;
+                btn.className = "bg-gray-400 text-white text-xs px-2 py-1 rounded font-bold cursor-not-allowed w-full mt-1";
             } else {
-                document.getElementById('btnStartD1').disabled = false;
-                document.getElementById('btnStartD1').className = "bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-blue-700";
-            }
-            if(d2 !== "Active") {
-                document.getElementById('btnStartD2').disabled = true;
-                document.getElementById('btnStartD2').className = "bg-gray-400 text-white text-xs px-3 py-1 rounded font-bold cursor-not-allowed";
-            } else {
-                document.getElementById('btnStartD2').disabled = false;
-                document.getElementById('btnStartD2').className = "bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-blue-700";
+                btn.disabled = false;
+                btn.className = "bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold hover:bg-blue-700 w-full mt-1";
             }
         }
 
         function startLiveAttendance(day) {
-            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर गर्नुहोस् ।", true);
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो ।", true);
         }
 
         async function loadReport() {
@@ -263,6 +263,7 @@
                 <select id="attendanceDay" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700 text-sm">
                     <option value="Day-1">Attendance Day-1</option>
                     <option value="Day-2">Attendance Day-2</option>
+                    <option value="Day-3">Attendance Day-3</option>
                 </select>
 
                 <input type="text" id="lionsId" placeholder="Lions ID / Reg No" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
@@ -284,14 +285,18 @@
                 <button onclick="showPage('userSection'); loadSystemStatus();" class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-bold">Logout</button>
             </div>
             
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <div class="p-2 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-xs block mb-1 text-gray-700" id="d1SheetStatus">Day-1 Status: </span>
-                    <button id="btnStartD1" onclick="startLiveAttendance('Day-1')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold transition">START LIVE</button>
+            <div class="grid grid-cols-3 gap-1 mb-4">
+                <div class="p-1 bg-gray-50 rounded border text-left">
+                    <span class="font-bold text-[10px] block text-gray-700" id="d1SheetStatus">Day-1 Status:</span>
+                    <button id="btnStartD1" onclick="startLiveAttendance('Day-1')">START LIVE</button>
                 </div>
-                <div class="p-2 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-xs block mb-1 text-gray-700" id="d2SheetStatus">Day-2 Status: </span>
-                    <button id="btnStartD2" onclick="startLiveAttendance('Day-2')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold transition">START LIVE</button>
+                <div class="p-1 bg-gray-50 rounded border text-left">
+                    <span class="font-bold text-[10px] block text-gray-700" id="d2SheetStatus">Day-2 Status:</span>
+                    <button id="btnStartD2" onclick="startLiveAttendance('Day-2')">START LIVE</button>
+                </div>
+                <div class="p-1 bg-gray-50 rounded border text-left">
+                    <span class="font-bold text-[10px] block text-gray-700" id="d3SheetStatus">Day-3 Status:</span>
+                    <button id="btnStartD3" onclick="startLiveAttendance('Day-3')">START LIVE</button>
                 </div>
             </div>
 
