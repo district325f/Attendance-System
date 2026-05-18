@@ -9,13 +9,14 @@
         .hidden { display: none; }
         .present-row { border-left: 5px solid #22c55e; }
         .absent-row { border-left: 5px solid #ef4444; }
-        /* घुम्ने लोडिङ एनिमेसन (Spinner) को स्टाइल */
+        
+        /* स्पिनर लोडर */
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #1e3a8a;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 35px;
+            height: 35px;
             animation: spin 1s linear infinite;
             display: inline-block;
         }
@@ -29,6 +30,35 @@
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
+
+        // कस्टम डायलग बक्स देखाउने फङ्सन (Custom Dialog Box)
+        function showDialog(title, message, isSuccess = true) {
+            const dialogBox = document.getElementById('customDialog');
+            const dialogTitle = document.getElementById('dialogTitle');
+            const dialogMessage = document.getElementById('dialogMessage');
+            const dialogIcon = document.getElementById('dialogIcon');
+            const dialogBtn = document.getElementById('dialogBtn');
+
+            // यदि सफल भयो भने हरियो रङ, असफल भयो भने रातो रङको थिम सेट गर्ने
+            if(isSuccess) {
+                dialogTitle.className = "text-xl font-bold text-green-600 mb-2";
+                dialogIcon.innerHTML = "✅";
+                dialogBtn.className = "w-full bg-green-600 text-white p-2 rounded font-bold hover:bg-green-700 transition";
+            } else {
+                dialogTitle.className = "text-xl font-bold text-red-600 mb-2";
+                dialogIcon.innerHTML = "❌";
+                dialogBtn.className = "w-full bg-red-600 text-white p-2 rounded font-bold hover:bg-red-700 transition";
+            }
+
+            dialogTitle.innerText = title;
+            dialogMessage.innerText = message;
+            dialogBox.classList.remove('hidden');
+        }
+
+        // डायलग बक्स बन्द गर्ने फङ्सन
+        function closeDialog() {
+            document.getElementById('customDialog').classList.add('hidden');
+        }
 
         async function loadSystemStatus() {
             try {
@@ -58,23 +88,23 @@
             }
         }
 
-        // सहभागीले हाजिर बुझाउँदा लोडिङ र स्पिनर देखाउने परिमार्जित फङ्सन
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
-            if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस् ।");
+            if(!lionsId) {
+                showDialog("चेतावनी !", "कृपया आफ्नो Lions ID वा दर्ता नम्बर हाल्नुहोस् ।", false);
+                return;
+            }
 
             const loadingOverlay = document.getElementById('loadingOverlay');
             const loadingText = document.getElementById('loadingText');
             const submitBtn = document.getElementById('submitBtn');
 
-            // १. बटनलाई असक्षम (Disable) गर्ने र लोडिङ पपअप देखाउने
             submitBtn.disabled = true;
             loadingOverlay.classList.remove('hidden');
             loadingText.innerText = "तपाईँको मोबाइलको लोकेसन (GPS) जाँच्दै... कृपया पर्खिनुहोस् ।";
 
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                // २. लोकेसन पाएपछि सर्भरमा डाटा पठाउँदाको म्यासेज
                 loadingText.innerText = "विवरण रुजु गरिँदै र हाजिर सेभ हुँदैछ...";
 
                 try {
@@ -90,22 +120,26 @@
                     const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
                     const msg = await response.text();
                     
-                    // लोडिङ पपअप बन्द गर्ने र बटन सुचारु गर्ने
                     loadingOverlay.classList.add('hidden');
                     submitBtn.disabled = false;
 
-                    alert(msg === "Success" ? "हाजिर सफल भयो !" : msg);
+                    // पुराना alert() हटाएर कस्टम डायलग बक्समा नतिजा देखाउने
+                    if(msg === "Success") {
+                        showDialog("हाजिर सफल !", "तपाईँको आजको डिजिटल हाजिर सफलतापूर्वक दर्ता भयो । धन्यवाद !", true);
+                    } else {
+                        showDialog("हाजिर हुन सकेन", msg, false);
+                    }
+                    
                     loadSystemStatus();
                 } catch (error) {
                     loadingOverlay.classList.add('hidden');
                     submitBtn.disabled = false;
-                    alert("सर्भरसँग जडान हुन सकेन । कृपया पुनः प्रयास गर्नुहोस् ।");
+                    showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । कृपया इन्टरनेट चेक गरी पुनः प्रयास गर्नुहोस् ।", false);
                 }
             }, () => {
-                // यदि लोकेसन अन छैन भने लोडिङ बन्द गर्ने
                 loadingOverlay.classList.add('hidden');
                 submitBtn.disabled = false;
-                alert("कृपया मोबाइलको GPS/Location अन गरी पर्मिसन दिनुहोस् ।");
+                showDialog("लोकेसन समस्या", "कृपया मोबाइलको GPS/Location अन गर्नुहोस् र यो ब्राउजरलाई लोकेसनको अनुमति (Permission) दिनुहोस् ।", false);
                 loadSystemStatus();
             }, { enableHighAccuracy: true, timeout: 10000 });
         }
@@ -132,7 +166,7 @@
                 updateAdminPanelUI(result.day1Active, result.day2Active);
                 loadReport();
             } else {
-                alert(result.message || "विवरण मिलेन वा अकाउन्ट डिएक्टिभ छ ।");
+                showDialog("लगइन असफल", result.message || "विवरण मिलेन वा अकाउन्ट डिएक्टिभ छ ।", false);
             }
         }
 
@@ -151,7 +185,7 @@
         }
 
         function startLiveAttendance(day) {
-            alert(day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।");
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।", true);
         }
 
         async function loadReport() {
@@ -168,7 +202,7 @@
             data.absent.forEach(a => {
                 html += `<div class="bg-white p-3 mb-2 shadow-sm absent-row flex justify-between items-center">
                     <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club} [${a.desig}]</span></div>
-                    <button onclick="alert('यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।')" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
+                    <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
                 </div>`;
             });
 
@@ -180,6 +214,15 @@
 
     <div class="max-w-md w-full mx-auto p-6 flex-grow flex flex-col justify-center relative">
         
+        <div id="customDialog" class="hidden fixed inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-50 p-6 text-center">
+            <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center max-w-sm w-full border-t-8 border-blue-900 animate-bounce-short">
+                <div id="dialogIcon" class="text-4xl mb-2"></div>
+                <h3 id="dialogTitle" class="text-xl font-bold mb-2">शीर्षक</h3>
+                <p id="dialogMessage" class="text-sm text-gray-600 font-medium mb-6">यहाँ सन्देश देखिनेछ ।</p>
+                <button id="dialogBtn" onclick="closeDialog()" class="w-full bg-blue-900 text-white p-2 rounded font-bold transition">OK</button>
+            </div>
+        </div>
+
         <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 p-6 text-center">
             <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-xs w-full">
                 <div class="loader mb-4"></div>
