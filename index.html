@@ -21,7 +21,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col justify-between">
+<body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-16">
 
     <script>
         // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
@@ -197,7 +197,7 @@
         }
 
         function startLiveAttendance(day) {
-            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।", true);
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर गर्नुहोस् ।", true);
         }
 
         async function loadReport() {
@@ -302,7 +302,7 @@
 
     </div>
 
-    <div class="p-4 text-center border-t bg-white shadow-inner">
+    <div class="fixed bottom-0 left-0 right-0 p-3 text-center border-t bg-white shadow-md z-40">
         <p class="text-xs font-semibold text-gray-500">
             Design by: <a href="https://www.facebook.com/nirajan.aryal.92" target="_blank" class="text-blue-600 hover:underline font-bold">Nirajan Aryal</a> | 📱 <span class="text-gray-700 font-bold">9851113811</span>
         </p>
