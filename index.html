@@ -149,7 +149,7 @@
             const user = document.getElementById('user').value;
             const pass = document.getElementById('pass').value;
 
-            if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस्।", false);
+            if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस् ।", false);
 
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.classList.remove('hidden');
@@ -172,7 +172,7 @@
                 }
             } catch (e) {
                 loadingOverlay.classList.add('hidden');
-                showDialog("सिस्टम एरर", "गुगल स्क्रिप्टसँग जडान हुन सकेन। कृपया म्याक्रो वा वेब एप युआरएल जाँच गर्नुहोस्।", false);
+                showDialog("सिस्टम एरर", "गुगल स्क्रिप्टसँग जडान हुन सकेन । कृपया म्याक्रो वा वेब एप युआरएल जाँच गर्नुहोस् ।", false);
             }
         }
 
@@ -216,7 +216,7 @@
                 data.absent.forEach(a => {
                     html += `<div class="bg-white p-2 mb-2 shadow-sm absent-row flex justify-between items-center text-sm">
                         <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club}</span></div>
-                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई हलको क्युআর कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
+                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
                     </div>`;
                 });
                 document.getElementById('reportData').innerHTML = html;
