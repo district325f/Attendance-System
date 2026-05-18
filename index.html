@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Attendance System - District 325 F</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         .hidden { display: none; }
         .present-row { border-left: 5px solid #22c55e; }
@@ -25,7 +24,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between">
 
     <script>
-        // ⚠️ यहाँ आफ्नो नयाँ गुगल वेब एप यूआरएल पेस्ट गर्नुहोस्
+        // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
 
         // कस्टम डायलग बक्स फङ्सन
@@ -55,20 +54,12 @@
             document.getElementById('customDialog').classList.add('hidden');
         }
 
-        // सिटको स्थिति अनुसार ब्यानरको एडभान्स डिजाइन मिलाउने फङ्सन
+        // सिटको स्थिति अनुसार ब्यानरको एडभान्स डिजाइन मिलाउने
         async function loadSystemStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             try {
-                // यदि युआरएलमा म्यानुअल बाइपास टोकन छ भने सिधै हाजिर गर्ने पाटोमा लैजाने
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.has('bypass_id')) {
-                    executeBypassAttendance(urlParams.get('bypass_id'), urlParams.get('day'));
-                    return;
-                }
-
                 const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
                 const status = await response.json();
-                
                 const daySelect = document.getElementById('attendanceDay');
 
                 if (status.day1 === "Active" && status.day2 === "Active") {
@@ -88,15 +79,15 @@
                     daySelect.options[0].disabled = true;
                     daySelect.options[1].disabled = true;
                     statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4";
-                    statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
+                    statusIndicator.innerText = "✕ Attendance Closed (सिटबाट बन्द छ)";
                 }
             } catch(e) {
                 statusIndicator.className = "text-center text-sm font-bold p-2 rounded bg-amber-100 text-amber-800 mb-4";
-                statusIndicator.innerText = "सिस्टम जडानमा समस्या भयो । यूआरएल चेक गर्नुहोस् ।";
+                statusIndicator.innerText = "सिस्टम जडानमा समस्या भयो ।";
             }
         }
 
-        // साधारण एटेन्डेन्स सबमिट (लोकेसनसहित)
+        // हाजिर सबमिट गर्ने प्रक्रिया
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
@@ -119,8 +110,7 @@
                         day: selectedDay,
                         lat: pos.coords.latitude,
                         lon: pos.coords.longitude,
-                        deviceId: navigator.userAgent,
-                        bypass: false
+                        deviceId: navigator.userAgent
                     };
 
                     const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -138,48 +128,13 @@
                 } catch (error) {
                     loadingOverlay.classList.add('hidden');
                     submitBtn.disabled = false;
-                    showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन ।", false);
+                    showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । पुनः प्रयास गर्नुहोस्।", false);
                 }
             }, () => {
                 loadingOverlay.classList.add('hidden');
                 submitBtn.disabled = false;
-                showDialog("लोकेसन समस्या", "लोकेसन ब्लक भयो ! कृपया हेल्प डेस्क (Admin Desk) मा गएर म्यानुअल क्युआर कोड स्क्यान गरी हाजिर प्रमाणित गर्नुहोला ।", false);
+                showDialog("लोकेसन समस्या", "कृपया मोबाइलको GPS अन गर्नुहोस् र ब्राउजरलाई लोकेसन अनुमति दिनुहोस् ।", false);
             }, { enableHighAccuracy: true, timeout: 8000 });
-        }
-
-        // एडमिन क्युआर स्क्यान गरेपछि स्वतः चल्ने लोकेसन बाइपास एटेन्डेन्स
-        async function executeBypassAttendance(id, day) {
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            loadingOverlay.classList.remove('hidden');
-            document.getElementById('loadingText').innerText = "हेल्प डेस्क प्रमाणीकरण हुँदैछ...";
-
-            try {
-                const payload = {
-                    action: "submitAttendance",
-                    lionsId: id,
-                    day: day,
-                    lat: 0, lon: 0,
-                    deviceId: "Bypassed_via_Admin_QR",
-                    bypass: true
-                };
-                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const msg = await response.text();
-                loadingOverlay.classList.add('hidden');
-                
-                // टोकन हटाएर लिङ्क सफा गर्ने
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                if(msg === "Success") {
-                    showDialog("प्रमाणित सफल !", "एडमिन क्युआर मार्फत तपाईँको हाजिर सुरक्षित दर्ता भयो । धन्यवाद !", true);
-                } else {
-                    showDialog("त्रुटि", msg, false);
-                }
-                loadSystemStatus();
-            } catch(e) {
-                loadingOverlay.classList.add('hidden');
-                showDialog("त्रुटि", "बाइपास प्रमाणीकरण असफल भयो ।", false);
-                loadSystemStatus();
-            }
         }
 
         function showPage(pageId) {
@@ -189,65 +144,85 @@
             document.getElementById(pageId).classList.remove('hidden');
         }
 
+        // एडमिन लगइन फङ्सन
         async function adminLogin() {
             const user = document.getElementById('user').value;
             const pass = document.getElementById('pass').value;
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
-            });
-            const result = await response.json();
 
-            if(result.status === "success") {
-                showPage('reportDashboard');
-                loadReport();
-            } else {
-                showDialog("लगइन असफल", result.message, false);
+            if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस्।", false);
+
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.remove('hidden');
+            document.getElementById('loadingText').innerText = "एडमिन विवरण जाँच्दै...";
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
+                });
+                const result = await response.json();
+                loadingOverlay.classList.add('hidden');
+
+                if(result.status === "success") {
+                    showPage('reportDashboard');
+                    updateAdminPanelUI(result.day1Active, result.day2Active);
+                    loadReport();
+                } else {
+                    showDialog(" लगइन असफल", result.message || "विवरण मिलेन ।", false);
+                }
+            } catch (e) {
+                loadingOverlay.classList.add('hidden');
+                showDialog("सिस्टम एरर", "गुगल स्क्रिप्टसँग जडान हुन सकेन। कृपया म्याक्रो वा वेब एप युआरएल जाँच गर्नुहोस्।", false);
             }
         }
 
-        // एडमिन ड्यासबोर्डमा म्यानुअल बाइपास क्युआर जेनरेट गर्ने
-        function generateBypassQR(memberId) {
-            const currentActiveDay = document.getElementById('attendanceDay').value;
-            const bypassUrl = window.location.origin + window.location.pathname + `?bypass_id=${memberId}&day=${currentActiveDay}`;
+        // पुराना START LIVE बटनहरू फर्काइएको पाटो
+        function updateAdminPanelUI(d1, d2) {
+            document.getElementById('d1SheetStatus').innerText = "Status: " + d1;
+            document.getElementById('d2SheetStatus').innerText = "Status: " + d2;
             
-            const qrContainer = document.getElementById('adminQrCode');
-            qrContainer.innerHTML = ""; 
-            
-            new QRCode(qrContainer, {
-                text: bypassUrl,
-                width: 180,
-                height: 180,
-                colorDark : "#1e3a8a",
-                colorLight : "#ffffff"
-            });
-            
-            document.getElementById('qrModalTitle').innerText = `ID: ${memberId} को प्रमाणीकरण क्युआर`;
-            document.getElementById('adminQrModal').classList.remove('hidden');
+            if(d1 !== "Active") {
+                document.getElementById('btnStartD1').disabled = true;
+                document.getElementById('btnStartD1').className = "bg-gray-400 text-white text-xs px-3 py-1 rounded font-bold cursor-not-allowed";
+            } else {
+                document.getElementById('btnStartD1').disabled = false;
+                document.getElementById('btnStartD1').className = "bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-blue-700";
+            }
+            if(d2 !== "Active") {
+                document.getElementById('btnStartD2').disabled = true;
+                document.getElementById('btnStartD2').className = "bg-gray-400 text-white text-xs px-3 py-1 rounded font-bold cursor-not-allowed";
+            } else {
+                document.getElementById('btnStartD2').disabled = false;
+                document.getElementById('btnStartD2').className = "bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold hover:bg-blue-700";
+            }
         }
 
-        function closeQrModal() {
-            document.getElementById('adminQrModal').classList.add('hidden');
+        function startLiveAttendance(day) {
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो । ढिलो आउनेको नाम तलको 'Absent List' मा हेरी रुजु गरेर हलको क्युआर देखाउनुहोस् ।", true);
         }
 
         async function loadReport() {
             document.getElementById('reportData').innerHTML = "रिपोर्ट लोड हुँदैछ...";
-            const response = await fetch(SCRIPT_URL + "?action=getReport");
-            const data = await response.json();
-            
-            let html = `<h3 class="font-bold text-green-600 mb-2">उपस्थित साथीहरू (${data.present.length})</h3>`;
-            data.present.forEach(p => {
-                html += `<div class="bg-white p-2 mb-2 shadow-sm present-row text-sm font-semibold">✅ ${p.name} - <span class="text-xs text-gray-500">${p.club}</span></div>`;
-            });
+            try {
+                const response = await fetch(SCRIPT_URL + "?action=getReport");
+                const data = await response.json();
+                
+                let html = `<h3 class="font-bold text-green-600 mb-2">उपस्थित साथीहरू (${data.present.length})</h3>`;
+                data.present.forEach(p => {
+                    html += `<div class="bg-white p-2 mb-2 shadow-sm present-row text-sm font-semibold">✅ ${p.name} - <span class="text-xs text-gray-500">${p.club}</span></div>`;
+                });
 
-            html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (Absent) (${data.absent.length})</h3>`;
-            data.absent.forEach(a => {
-                html += `<div class="bg-white p-2 mb-2 shadow-sm absent-row flex justify-between items-center text-sm">
-                    <div>❌ <span class="font-bold">${a.name}</span> <span class="text-xs text-gray-400">[ID: ${a.id}]</span></div>
-                    <button onclick="generateBypassQR('${a.id}')" class="bg-blue-900 text-white text-xs px-3 py-1 rounded font-bold shadow hover:bg-blue-950 transition">Verify & Show QR</button>
-                </div>`;
-            });
-            document.getElementById('reportData').innerHTML = html;
+                html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
+                data.absent.forEach(a => {
+                    html += `<div class="bg-white p-2 mb-2 shadow-sm absent-row flex justify-between items-center text-sm">
+                        <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club}</span></div>
+                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई हलको क्युআর कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
+                    </div>`;
+                });
+                document.getElementById('reportData').innerHTML = html;
+            } catch(e) {
+                document.getElementById('reportData').innerHTML = "रिपोर्ट लोड गर्न सकिएन ।";
+            }
         }
 
         window.addEventListener('DOMContentLoaded', loadSystemStatus);
@@ -268,15 +243,6 @@
             <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-xs w-full">
                 <div class="loader mb-4"></div>
                 <p id="loadingText" class="text-sm font-bold text-gray-800">प्रक्रिया सुरु हुँदैछ...</p>
-            </div>
-        </div>
-
-        <div id="adminQrModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center z-50 p-6">
-            <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center max-w-xs w-full text-center">
-                <h3 id="qrModalTitle" class="font-bold text-gray-800 mb-4 text-sm">प्रमाणीकरण क्युआर</h3>
-                <div id="adminQrCode" class="p-2 bg-white border mb-4"></div>
-                <p class="text-xs text-amber-700 font-semibold mb-4">सहभागीको मोबाइल क्यामेराले यो क्युआर स्क्यान गर्न भन्नुहोस्। यसले लोकेसन बाइपास गरी हाजिर प्रमाणित गर्छ।</p>
-                <button onclick="closeQrModal(); loadReport();" class="w-full bg-gray-800 text-white p-2 rounded text-xs font-bold">CLOSE</button>
             </div>
         </div>
         
@@ -305,11 +271,23 @@
             <button onclick="showPage('userSection')" class="w-full text-xs text-gray-600 text-center underline font-semibold mt-2">← Back to Attendance Form</button>
         </div>
 
-        <div id="reportDashboard" class="hidden bg-white p-4 rounded-lg shadow-lg mt-4 max-h-[80vh] overflow-y-auto">
+        <div id="reportDashboard" class="hidden bg-white p-4 rounded-lg shadow-lg mt-4 max-h-[85vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-2 mb-4">
-                <h2 class="text-lg font-bold text-gray-800">Admin Help Desk</h2>
+                <h2 class="text-lg font-bold text-gray-800">Admin Control Room</h2>
                 <button onclick="showPage('userSection'); loadSystemStatus();" class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-bold">Logout</button>
             </div>
+            
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <div class="p-2 bg-gray-50 rounded border text-left">
+                    <span class="font-bold text-xs block mb-1 text-gray-700" id="d1SheetStatus">Day-1 Status: </span>
+                    <button id="btnStartD1" onclick="startLiveAttendance('Day-1')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold transition">START LIVE</button>
+                </div>
+                <div class="p-2 bg-gray-50 rounded border text-left">
+                    <span class="font-bold text-xs block mb-1 text-gray-700" id="d2SheetStatus">Day-2 Status: </span>
+                    <button id="btnStartD2" onclick="startLiveAttendance('Day-2')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded font-bold transition">START LIVE</button>
+                </div>
+            </div>
+
             <h2 class="text-md font-bold mb-2 text-gray-800">Live Attendance Report</h2>
             <button onclick="loadReport()" class="bg-green-600 text-white px-4 py-1.5 rounded mb-4 text-xs font-semibold shadow hover:bg-green-700 transition">Refresh Data</button>
             <div id="reportData" class="text-left"></div>
