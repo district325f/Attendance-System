@@ -9,6 +9,20 @@
         .hidden { display: none; }
         .present-row { border-left: 5px solid #22c55e; }
         .absent-row { border-left: 5px solid #ef4444; }
+        /* घुम्ने लोडिङ एनिमेसन (Spinner) को स्टाइल */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1e3a8a;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between">
@@ -44,31 +58,56 @@
             }
         }
 
+        // सहभागीले हाजिर बुझाउँदा लोडिङ र स्पिनर देखाउने परिमार्जित फङ्सन
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
             if(!lionsId) return alert("कृपया Lions ID हाल्नुहोस् ।");
 
-            document.getElementById('currentDayText').innerText = "लोकेसन र विवरण जाँच्दै...";
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // १. बटनलाई असक्षम (Disable) गर्ने र लोडिङ पपअप देखाउने
+            submitBtn.disabled = true;
+            loadingOverlay.classList.remove('hidden');
+            loadingText.innerText = "तपाईँको मोबाइलको लोकेसन (GPS) जाँच्दै... कृपया पर्खिनुहोस् ।";
 
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                const payload = {
-                    action: "submitAttendance",
-                    lionsId: lionsId,
-                    day: selectedDay,
-                    lat: pos.coords.latitude,
-                    lon: pos.coords.longitude,
-                    deviceId: navigator.userAgent
-                };
+                // २. लोकेसन पाएपछि सर्भरमा डाटा पठाउँदाको म्यासेज
+                loadingText.innerText = "विवरण रुजु गरिँदै र हाजिर सेभ हुँदैछ...";
 
-                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const msg = await response.text();
-                alert(msg === "Success" ? "हाजिर सफल भयो !" : msg);
-                loadSystemStatus();
+                try {
+                    const payload = {
+                        action: "submitAttendance",
+                        lionsId: lionsId,
+                        day: selectedDay,
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        deviceId: navigator.userAgent
+                    };
+
+                    const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    const msg = await response.text();
+                    
+                    // लोडिङ पपअप बन्द गर्ने र बटन सुचारु गर्ने
+                    loadingOverlay.classList.add('hidden');
+                    submitBtn.disabled = false;
+
+                    alert(msg === "Success" ? "हाजिर सफल भयो !" : msg);
+                    loadSystemStatus();
+                } catch (error) {
+                    loadingOverlay.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    alert("सर्भरसँग जडान हुन सकेन । कृपया पुनः प्रयास गर्नुहोस् ।");
+                }
             }, () => {
+                // यदि लोकेसन अन छैन भने लोडिङ बन्द गर्ने
+                loadingOverlay.classList.add('hidden');
+                submitBtn.disabled = false;
                 alert("कृपया मोबाइलको GPS/Location अन गरी पर्मिसन दिनुहोस् ।");
                 loadSystemStatus();
-            });
+            }, { enableHighAccuracy: true, timeout: 10000 });
         }
 
         function showPage(pageId) {
@@ -139,7 +178,14 @@
         window.addEventListener('DOMContentLoaded', loadSystemStatus);
     </script>
 
-    <div class="max-w-md w-full mx-auto p-6 flex-grow flex flex-col justify-center">
+    <div class="max-w-md w-full mx-auto p-6 flex-grow flex flex-col justify-center relative">
+        
+        <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 p-6 text-center">
+            <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-xs w-full">
+                <div class="loader mb-4"></div>
+                <p id="loadingText" class="text-sm font-bold text-gray-800">प्रक्रिया सुरु हुँदैछ...</p>
+            </div>
+        </div>
         
         <div id="userSection" class="bg-white p-6 rounded-lg shadow-lg">
             <h2 class="text-2xl font-bold text-blue-900 mb-1 text-center">Lions International</h2>
@@ -153,7 +199,7 @@
             </select>
 
             <input type="text" id="lionsId" placeholder="Lions ID / Reg No" class="w-full border p-2 mb-4 rounded">
-            <button onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition">SUBMIT ATTENDANCE</button>
+            <button id="submitBtn" onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition">SUBMIT ATTENDANCE</button>
         </div>
 
         <div id="loginForm" class="hidden bg-gray-200 p-6 rounded-lg shadow-md border-t-4 border-gray-700">
