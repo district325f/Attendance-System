@@ -233,8 +233,13 @@ function updateAdminPanelUI(d1, d2, d3) {
 
 function setButtonStyle(btnId, status) {
     const btn = document.getElementById(btnId);
-    btn.disabled = false;
-    btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+    if(status !== "Active") {
+        btn.disabled = false;
+        btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+    } else {
+        btn.disabled = false;
+        btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+    }
 }
 
 async function startLiveAttendance(day) {
@@ -323,15 +328,6 @@ function downloadExcelReport() {
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [
-        { wch: 8 },
-        { wch: 14 },
-        { wch: 32 },
-        { wch: 38 },
-        { wch: 38 },
-        { wch: 18 }
-    ];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
     XLSX.writeFile(wb, `Lions_Attendance_Report_${filterDay}.xlsx`);
@@ -339,9 +335,7 @@ function downloadExcelReport() {
 
 function downloadPDFReport() {
     const { jsPDF } = window.jspdf;
-
-    // ✅ Landscape A4: लामो नाम र designation नकाटिने fix
-    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const doc = new jsPDF();
     const filterDay = document.getElementById('reportDayFilter').value;
 
     doc.setFontSize(16);
@@ -354,25 +348,10 @@ function downloadPDFReport() {
     let counter = 1;
 
     currentReportData.present.forEach(p => {
-        bodyRows.push([
-            counter++,
-            p.id,
-            p.name,
-            p.club,
-            p.desig,
-            p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"
-        ]);
+        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
     });
-
     currentReportData.absent.forEach(a => {
-        bodyRows.push([
-            counter++,
-            a.id,
-            a.name,
-            a.club,
-            a.desig,
-            "ABSENT"
-        ]);
+        bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
     });
 
     doc.autoTable({
@@ -380,21 +359,7 @@ function downloadPDFReport() {
         head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Designation', 'Status']],
         body: bodyRows,
         headStyles: { fillColor: [30, 58, 138] },
-        theme: 'striped',
-        styles: {
-            fontSize: 8,
-            cellPadding: 2,
-            overflow: 'linebreak'
-        },
-        columnStyles: {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 22 },
-            2: { cellWidth: 55 },
-            3: { cellWidth: 70 },
-            4: { cellWidth: 75 },
-            5: { cellWidth: 32 }
-        },
-        margin: { left: 8, right: 8 }
+        theme: 'striped'
     });
 
     doc.save(`Lions_Attendance_Report_${filterDay}.pdf`);
