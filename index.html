@@ -27,7 +27,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-20">
 
     <script>
-        // ⚠️ यहाँ आफ्नो गुगल वेब एपको भर्खरै जेनरेट भएको नयाँ URL अनिवार्य रूपमा पेस्ट गर्नुहोस्
+        // ⚠️ यहाँ आफ्नो गुगल वेब एपको भर्खरैको नयाँ URL पेस्ट गर्नुहोला
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
         
         let currentReportData = { present: [], absent: [] };
@@ -74,33 +74,31 @@
                 } else {
                     clearInterval(countdownInterval);
                     timerBox.className = "text-center text-xs sm:text-sm font-bold p-2.5 rounded bg-amber-100 border border-amber-300 text-amber-800 mb-4 shadow-sm animate-pulse";
-                    timerText.innerHTML = `⚠️ नियमित समय समाप्त! अब हुने हाजिर 'Late Attendance' मा रेकर्ड हुनेछ।`;
+                    timerText.innerHTML = `⚠️ नियमित समय समाप्त! अब हुने हाजिर 'Late Attendance' मा रेकرد हुनेछ।`;
                 }
             }, 1000);
         }
 
-        // 🔒 सिटमा जुन दिन Active छ, कम्बोबक्समा त्यही दिन मात्र सेलेक्ट हुने सुधारेको फङ्सन
+        // 🔒 सिटमा एक्टिभ भएको दिन मात्र सेलेक्ट हुने अटो लजिक
         async function loadSystemStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             const timerBox = document.getElementById('countdownBox');
-            const daySelect = document.getElementById('attendanceDay');
-            
             try {
                 const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
-                if (!response.ok) throw new Error("Network error");
-                
                 const status = await response.json();
+                const daySelect = document.getElementById('attendanceDay');
+
                 let activeDays = [];
                 let activeTimeMs = null;
                 
-                // सिटको स्थिति अनुसार कम्बोबक्स अप्सन लक/अनकल गर्ने लजिक (FIXED)
+                // कुन दिन एक्टिभ छ चेक गरी नभएको दिनलाई लक गरिदिने
                 daySelect.options[0].disabled = (status.day1 !== "Active");
                 daySelect.options[1].disabled = (status.day2 !== "Active");
                 daySelect.options[2].disabled = (status.day3 !== "Active");
 
                 if(status.day1 === "Active") { activeDays.push("Day-1"); activeTimeMs = status.day1Time; daySelect.value = "Day-1"; }
-                else if(status.day2 === "Active") { activeDays.push("Day-2"); activeTimeMs = status.day2Time; daySelect.value = "Day-2"; }
-                else if(status.day3 === "Active") { activeDays.push("Day-3"); activeTimeMs = status.day3Time; daySelect.value = "Day-3"; }
+                if(status.day2 === "Active") { activeDays.push("Day-2"); activeTimeMs = status.day2Time; daySelect.value = "Day-2"; }
+                if(status.day3 === "Active") { activeDays.push("Day-3"); activeTimeMs = status.day3Time; daySelect.value = "Day-3"; }
 
                 if(activeDays.length > 0) {
                     statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-green-100 text-green-800 mb-2";
@@ -113,18 +111,12 @@
                     statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-2";
                     statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
                     timerBox.classList.add('hidden');
-                    
-                    // सबै बन्द हुँदा पहिलो दिन डिसेबल नगर्ने ताकि खाली नबसोस्
                     daySelect.options[0].disabled = false;
-                    daySelect.options[1].disabled = false;
-                    daySelect.options[2].disabled = false;
                     daySelect.value = "Day-1";
                 }
             } catch(e) {
-                // जडान एरर मेसेज बाइपास र समस्या हल
-                statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-2";
-                statusIndicator.innerText = "✕ एटेन्डेन्स सिट लोड भइरहेको छ वा अहिले बन्द छ ।";
-                timerBox.classList.add('hidden');
+                statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-amber-100 text-amber-800 mb-2";
+                statusIndicator.innerText = "सिस्टम जडानमा समस्या भयो ।";
             }
         }
 
@@ -239,7 +231,7 @@
             showDialog("लाइभ स्थिति", day + " प्रणाली एक्टिभ छ । सिटबाट नियन्त्रण गर्नुहोस्।", true);
         }
 
-        // 📊 परिमार्जित रिपोर्ट खण्ड (Dues हटाएर फोटो जस्तै सफा रूप)
+        // 📊 परिमार्जित रिपोर्ट खण्ड (Dues हटाएर फोटो जस्तै "Present" मात्र सफा रूपमा देखिने)
         async function loadReport() {
             const filterDay = document.getElementById('reportDayFilter').value;
             document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ...</p>";
