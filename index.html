@@ -287,8 +287,8 @@ async function loadReport() {
                     <span class="font-bold text-gray-800 text-sm block">${p.name}</span>
                     <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${p.club} | ${p.desig}</span>
                 </div>
-                <span class="text-[10px] ${p.attendanceStatus === 'Late Attendance' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-2 py-0.5 rounded-full font-bold">
-                    ${p.attendanceStatus === 'Late Attendance' ? 'Late Attendance' : 'Present'}
+                <span class="text-[10px] ${p.attendanceStatus === 'Late Present' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-2 py-0.5 rounded-full font-bold">
+                    ${p.attendanceStatus === 'Late Present' ? 'Late Present' : 'Present'}
                 </span>
             </div>`;
         });
@@ -321,7 +321,7 @@ function downloadExcelReport() {
 
     let counter = 1;
     currentReportData.present.forEach(p => {
-        rows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
+        rows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Present" ? "LATE PRESENT" : "PRESENT"]);
     });
     currentReportData.absent.forEach(a => {
         rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
@@ -348,7 +348,7 @@ function downloadPDFReport() {
     let counter = 1;
 
     currentReportData.present.forEach(p => {
-        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
+        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Present" ? "LATE PRESENT" : "PRESENT"]);
     });
     currentReportData.absent.forEach(a => {
         bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
