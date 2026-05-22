@@ -321,7 +321,7 @@ function downloadExcelReport() {
 
     let counter = 1;
     currentReportData.present.forEach(p => {
-        rows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE PRESENT" : "PRESENT"]);
+        rows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
     });
     currentReportData.absent.forEach(a => {
         rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
@@ -348,7 +348,7 @@ function downloadPDFReport() {
     let counter = 1;
 
     currentReportData.present.forEach(p => {
-        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE PRESENT" : "PRESENT"]);
+        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
     });
     currentReportData.absent.forEach(a => {
         bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
