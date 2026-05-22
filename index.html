@@ -30,7 +30,6 @@
         // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
         
-        // ग्लोबल डाटा स्टोर (रिपोर्ट डाउनलोड प्रयोजनका लागि)
         let currentReportData = { present: [], absent: [] };
 
         function showDialog(title, message, isSuccess = true) {
@@ -202,7 +201,7 @@
             showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली एक्टिभ छ ।", true);
         }
 
-        // डे-वाइज रिपोर्ट लोड गर्ने फङ्सन (Dues फिक्स सहित)
+        // 🌟 युनिभर्सल र क्लिन डिजाइन (Dues कार्ड हटाइएको)
         async function loadReport() {
             const filterDay = document.getElementById('reportDayFilter').value;
             document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
@@ -210,8 +209,6 @@
             try {
                 const response = await fetch(SCRIPT_URL + "?action=getReport&day=" + filterDay);
                 const data = await response.json();
-                
-                // डाउनलोडका लागि डाटा ग्लोबल स्टोरमा राख्ने
                 currentReportData = data;
                 
                 let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
@@ -222,30 +219,23 @@
                     html += `
                     <div class="bg-white p-2.5 mb-2 shadow-sm rounded border present-row text-xs flex justify-between items-center">
                         <div>
-                            <span class="font-bold text-gray-800">${p.name}</span>
-                            <span class="block text-[10px] text-gray-500">${p.club} | ${p.desig}</span>
+                            <span class="font-bold text-gray-800 text-sm block">${p.name}</span>
+                            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${p.club} | ${p.desig}</span>
                         </div>
-                        <div class="flex gap-1">
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${p.districtDues}</span>
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${p.intlDues}</span>
-                        </div>
+                        <span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Present</span>
                     </div>`;
                 });
 
                 html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
                 if(data.absent.length === 0) {
-                    html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसीकेका छन्।</p>`;
+                    html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
                 }
                 data.absent.forEach(a => {
                     html += `
                     <div class="bg-white p-2.5 mb-2 shadow-sm rounded border absent-row flex justify-between items-center text-xs">
                         <div>
-                            <span class="font-bold text-gray-800">${a.name}</span>
-                            <span class="block text-[10px] text-gray-500">${a.club} | ID: ${a.id}</span>
-                            <div class="flex gap-1 mt-1">
-                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${a.districtDues}</span>
-                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${a.intlDues}</span>
-                            </div>
+                            <span class="font-bold text-gray-800 text-sm block">${a.name}</span>
+                            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${a.club} | ID: ${a.id}</span>
                         </div>
                         <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
                     </div>`;
@@ -256,17 +246,17 @@
             }
         }
 
-        // 📊 एक्सेल (XLSX) डाउनलोड फङ्सन
+        // 📊 सफा Excel (.xlsx) रिपोर्ट जेनेरेट फङ्सन
         function downloadExcelReport() {
             const filterDay = document.getElementById('reportDayFilter').value;
-            let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "District Dues", "International Dues", "Status"]];
+            let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "Attendance Status"]];
             
             let counter = 1;
             currentReportData.present.forEach(p => {
-                rows.push([counter++, p.id, p.name, p.club, p.desig, p.districtDues, p.intlDues, "PRESENT"]);
+                rows.push([counter++, p.id, p.name, p.club, p.desig, "PRESENT"]);
             });
             currentReportData.absent.forEach(a => {
-                rows.push([counter++, a.id, a.name, a.club, a.desig, a.districtDues, a.intlDues, "ABSENT"]);
+                rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -275,7 +265,7 @@
             XLSX.writeFile(wb, `Lions_Attendance_Report_${filterDay}.xlsx`);
         }
 
-        // 📄 पीडीएफ (PDF) जेनेरेट र डाउनलोड फङ्सन
+        // 📄 सफा PDF (.pdf) रिपोर्ट जेनेरेट फङ्सन
         function downloadPDFReport() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -291,15 +281,15 @@
             let counter = 1;
             
             currentReportData.present.forEach(p => {
-                bodyRows.push([counter++, p.id, p.name, p.club, p.districtDues, p.intlDues, "PRESENT"]);
+                bodyRows.push([counter++, p.id, p.name, p.club, p.desig, "PRESENT"]);
             });
             currentReportData.absent.forEach(a => {
-                bodyRows.push([counter++, a.id, a.name, a.club, a.districtDues, a.intlDues, "ABSENT"]);
+                bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
             });
 
             doc.autoTable({
                 startY: 34,
-                head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Dist Dues', 'Intl Dues', 'Status']],
+                head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Designation', 'Status']],
                 body: bodyRows,
                 headStyles: { fillColor: [30, 58, 138] },
                 theme: 'striped'
