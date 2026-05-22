@@ -26,385 +26,456 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-20">
 
-    <script>
-        // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
-        
-        let currentReportData = { present: [], absent: [] };
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
 
-        function showDialog(title, message, isSuccess = true) {
-            const dialogBox = document.getElementById('customDialog');
-            const dialogTitle = document.getElementById('dialogTitle');
-            const dialogMessage = document.getElementById('dialogMessage');
-            const dialogIcon = document.getElementById('dialogIcon');
-            const dialogBtn = document.getElementById('dialogBtn');
+let currentReportData = { present: [], absent: [] };
+let attendanceStartTimes = {};
+let countdownTimer = null;
 
-            if(isSuccess) {
-                dialogTitle.className = "text-xl font-bold text-green-600 mb-2";
-                dialogIcon.innerHTML = "✅";
-                dialogBtn.className = "w-full bg-green-600 text-white p-2 rounded font-bold hover:bg-green-700 transition";
+function showDialog(title, message, isSuccess = true) {
+    const dialogBox = document.getElementById('customDialog');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogIcon = document.getElementById('dialogIcon');
+    const dialogBtn = document.getElementById('dialogBtn');
+
+    if(isSuccess) {
+        dialogTitle.className = "text-xl font-bold text-green-600 mb-2";
+        dialogIcon.innerHTML = "✅";
+        dialogBtn.className = "w-full bg-green-600 text-white p-2 rounded font-bold hover:bg-green-700 transition";
+    } else {
+        dialogTitle.className = "text-xl font-bold text-red-600 mb-2";
+        dialogIcon.innerHTML = "❌";
+        dialogBtn.className = "w-full bg-red-600 text-white p-2 rounded font-bold hover:bg-red-700 transition";
+    }
+
+    dialogTitle.innerText = title;
+    dialogMessage.innerText = message;
+    dialogBox.classList.remove('hidden');
+}
+
+function closeDialog() {
+    document.getElementById('customDialog').classList.add('hidden');
+}
+
+async function loadSystemStatus() {
+    const statusIndicator = document.getElementById('statusIndicator');
+    try {
+        const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
+        const status = await response.json();
+        const daySelect = document.getElementById('attendanceDay');
+
+        attendanceStartTimes = {
+            "Day-1": status.day1Start,
+            "Day-2": status.day2Start,
+            "Day-3": status.day3Start
+        };
+
+        let activeDays = [];
+        if(status.day1 === "Active") activeDays.push("Day-1");
+        if(status.day2 === "Active") activeDays.push("Day-2");
+        if(status.day3 === "Active") activeDays.push("Day-3");
+
+        daySelect.options[0].disabled = (status.day1 !== "Active");
+        daySelect.options[1].disabled = (status.day2 !== "Active");
+        daySelect.options[2].disabled = (status.day3 !== "Active");
+
+        if(activeDays.length > 0) {
+            daySelect.value = activeDays[activeDays.length - 1];
+            statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-green-100 text-green-800 mb-4 tracking-tight sm:tracking-normal";
+            statusIndicator.innerText = "● System Live: " + activeDays.join(" & ") + " Active";
+        } else {
+            daySelect.value = "Day-1";
+            statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4 tracking-tight sm:tracking-normal";
+            statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
+        }
+
+        startCountdown();
+
+    } catch(e) {
+        statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-amber-100 text-amber-800 mb-4";
+        statusIndicator.innerText = "सिस्टम जडानमा समस्या भयो ।";
+    }
+}
+
+function startCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+
+    countdownTimer = setInterval(() => {
+        const selectedDay = document.getElementById('attendanceDay').value;
+        const box = document.getElementById('countdownBox');
+        const startTime = attendanceStartTimes[selectedDay];
+
+        if (!box) return;
+
+        if (!startTime) {
+            box.innerText = "Attendance time not started";
+            box.className = "text-center text-xs font-bold p-2 rounded bg-gray-100 text-gray-600 mb-4";
+            return;
+        }
+
+        const start = new Date(startTime);
+        const now = new Date();
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        const diff = end - now;
+
+        if (diff <= 0) {
+            box.innerText = "Late Attendance";
+            box.className = "text-center text-xs font-bold p-2 rounded bg-red-100 text-red-700 mb-4";
+            return;
+        }
+
+        const min = Math.floor(diff / 1000 / 60);
+        const sec = Math.floor((diff / 1000) % 60);
+
+        box.innerText = "Attendance Duration: " + min + "m " + sec + "s remaining";
+        box.className = "text-center text-xs font-bold p-2 rounded bg-blue-100 text-blue-800 mb-4";
+    }, 1000);
+}
+
+async function submitAttendance() {
+    const lionsId = document.getElementById('lionsId').value;
+    const selectedDay = document.getElementById('attendanceDay').value;
+    if(!lionsId) return showDialog("चेतावनी !", "कृपया आफ्नो Lions ID हाल्नुहोस् ।", false);
+
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const submitBtn = document.getElementById('submitBtn');
+
+    submitBtn.disabled = true;
+    loadingOverlay.classList.remove('hidden');
+    loadingText.innerText = "तपाईँको मोबाइलको लोकेसन (GPS) जाँच्दै... कृपया पर्खिनुहोस् ।";
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        loadingText.innerText = "विवरण रुजु गरिँदै र हाजिर सेभ हुँदैछ...";
+        try {
+            const payload = {
+                action: "submitAttendance",
+                lionsId: lionsId,
+                day: selectedDay,
+                lat: pos.coords.latitude,
+                lon: pos.coords.longitude,
+                deviceId: navigator.userAgent
+            };
+
+            const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const msg = await response.text();
+
+            loadingOverlay.classList.add('hidden');
+            submitBtn.disabled = false;
+
+            if(msg === "Success") {
+                showDialog("हाजिर सफल !", "तपाईँको डिजिटल हाजिर सफलतापूर्वक दर्ता भयो ।", true);
+                document.getElementById('lionsId').value = "";
             } else {
-                dialogTitle.className = "text-xl font-bold text-red-600 mb-2";
-                dialogIcon.innerHTML = "❌";
-                dialogBtn.className = "w-full bg-red-600 text-white p-2 rounded font-bold hover:bg-red-700 transition";
+                showDialog("हाजिर हुन सकेन", msg, false);
             }
+        } catch (error) {
+            loadingOverlay.classList.add('hidden');
+            submitBtn.disabled = false;
+            showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । पुनः प्रयास गर्नुहोस्।", false);
+        }
+    }, () => {
+        loadingOverlay.classList.add('hidden');
+        submitBtn.disabled = false;
+        showDialog("लोकेसन समस्या", "कृपया मोबाइलको GPS अन गर्नुहोस् र ब्राउजरलाई लोकेसन अनुमति दिनुहोस् ।", false);
+    }, { enableHighAccuracy: true, timeout: 8000 });
+}
 
-            dialogTitle.innerText = title;
-            dialogMessage.innerText = message;
-            dialogBox.classList.remove('hidden');
+function showPage(pageId) {
+    document.getElementById('userSection').classList.add('hidden');
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('reportDashboard').classList.add('hidden');
+    document.getElementById(pageId).classList.remove('hidden');
+}
+
+async function adminLogin() {
+    const user = document.getElementById('user').value;
+    const pass = document.getElementById('pass').value;
+
+    if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस्।", false);
+
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    loadingOverlay.classList.remove('hidden');
+    document.getElementById('loadingText').innerText = "एडमिन विवरण जाँच्दै...";
+
+    try {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
+        });
+        const result = await response.json();
+        loadingOverlay.classList.add('hidden');
+
+        if(result.status === "success") {
+            showPage('reportDashboard');
+            updateAdminPanelUI(result.day1Active, result.day2Active, result.day3Active);
+            loadReport();
+        } else {
+            showDialog("लगइन असफल", result.message || "विवरण मिलेन ।", false);
+        }
+    } catch (e) {
+        loadingOverlay.classList.add('hidden');
+        showDialog("सिस्टम एरर", "गुगल स्क्रिप्टसँग जडान हुन सकेन।", false);
+    }
+}
+
+function updateAdminPanelUI(d1, d2, d3) {
+    document.getElementById('d1SheetStatus').innerText = "Status: " + d1;
+    document.getElementById('d2SheetStatus').innerText = "Status: " + d2;
+    document.getElementById('d3SheetStatus').innerText = "Status: " + d3;
+
+    setButtonStyle('btnStartD1', d1);
+    setButtonStyle('btnStartD2', d2);
+    setButtonStyle('btnStartD3', d3);
+}
+
+function setButtonStyle(btnId, status) {
+    const btn = document.getElementById(btnId);
+    if(status !== "Active") {
+        btn.disabled = false;
+        btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+    } else {
+        btn.disabled = false;
+        btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+    }
+}
+
+async function startLiveAttendance(day) {
+    try {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "startAttendance",
+                day: day
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो ।", true);
+            loadSystemStatus();
+            adminLogin();
+        } else {
+            showDialog("Error", "Attendance start गर्न सकिएन ।", false);
+        }
+    } catch(e) {
+        showDialog("System Error", "Server connect हुन सकेन ।", false);
+    }
+}
+
+async function loadReport() {
+    const filterDay = document.getElementById('reportDayFilter').value;
+    document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
+
+    try {
+        const response = await fetch(SCRIPT_URL + "?action=getReport&day=" + filterDay);
+        const data = await response.json();
+        currentReportData = data;
+
+        let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
+        if(data.present.length === 0) {
+            html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
         }
 
-        function closeDialog() {
-            document.getElementById('customDialog').classList.add('hidden');
+        data.present.forEach(p => {
+            html += `
+            <div class="bg-white p-2.5 mb-2 shadow-sm rounded border present-row text-xs flex justify-between items-center">
+                <div>
+                    <span class="font-bold text-gray-800 text-sm block">${p.name}</span>
+                    <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${p.club} | ${p.desig}</span>
+                </div>
+                <span class="text-[10px] ${p.attendanceStatus === 'Late Attendance' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-2 py-0.5 rounded-full font-bold">
+                    ${p.attendanceStatus === 'Late Attendance' ? 'Late Attendance' : 'Present'}
+                </span>
+            </div>`;
+        });
+
+        html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
+        if(data.absent.length === 0) {
+            html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
         }
 
-        async function loadSystemStatus() {
-            const statusIndicator = document.getElementById('statusIndicator');
-            try {
-                const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
-                const status = await response.json();
-                const daySelect = document.getElementById('attendanceDay');
+        data.absent.forEach(a => {
+            html += `
+            <div class="bg-white p-2.5 mb-2 shadow-sm rounded border absent-row flex justify-between items-center text-xs">
+                <div>
+                    <span class="font-bold text-gray-800 text-sm block">${a.name}</span>
+                    <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${a.club} | ID: ${a.id}</span>
+                </div>
+                <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
+            </div>`;
+        });
 
-                let activeDays = [];
-                if(status.day1 === "Active") activeDays.push("Day-1");
-                if(status.day2 === "Active") activeDays.push("Day-2");
-                if(status.day3 === "Active") activeDays.push("Day-3");
+        document.getElementById('reportData').innerHTML = html;
+    } catch(e) {
+        document.getElementById('reportData').innerHTML = "<p class='text-center text-xs text-red-500 font-bold py-2'>रिपोर्ट लोड गर्न सकिएन । पुनः प्रयास गर्नुहोस् ।</p>";
+    }
+}
 
-                daySelect.options[0].disabled = (status.day1 !== "Active");
-                daySelect.options[1].disabled = (status.day2 !== "Active");
-                daySelect.options[2].disabled = (status.day3 !== "Active");
+function downloadExcelReport() {
+    const filterDay = document.getElementById('reportDayFilter').value;
+    let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "Attendance Status"]];
 
-                if(activeDays.length > 0) {
-                    daySelect.value = activeDays[activeDays.length - 1]; 
-                    statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-green-100 text-green-800 mb-4 tracking-tight sm:tracking-normal";
-                    statusIndicator.innerText = "● System Live: " + activeDays.join(" & ") + " Active";
-                } else {
-                    daySelect.value = "Day-1";
-                    statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4 tracking-tight sm:tracking-normal";
-                    statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
-                }
-            } catch(e) {
-                statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-amber-100 text-amber-800 mb-4";
-                statusIndicator.innerText = "सिस्टम जडानमा समस्या भयो ।";
-            }
-        }
+    let counter = 1;
+    currentReportData.present.forEach(p => {
+        rows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
+    });
+    currentReportData.absent.forEach(a => {
+        rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
+    });
 
-        async function submitAttendance() {
-            const lionsId = document.getElementById('lionsId').value;
-            const selectedDay = document.getElementById('attendanceDay').value;
-            if(!lionsId) return showDialog("चेतावनी !", "कृपया आफ्नो Lions ID हाल्नुहोस् ।", false);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
+    XLSX.writeFile(wb, `Lions_Attendance_Report_${filterDay}.xlsx`);
+}
 
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            const loadingText = document.getElementById('loadingText');
-            const submitBtn = document.getElementById('submitBtn');
+function downloadPDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const filterDay = document.getElementById('reportDayFilter').value;
 
-            submitBtn.disabled = true;
-            loadingOverlay.classList.remove('hidden');
-            loadingText.innerText = "तपाईँको मोबाइलको लोकेसन (GPS) जाँच्दै... कृपया पर्खिनुहोस् ।";
+    doc.setFontSize(16);
+    doc.text("Lions International District 325 F", 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Digital Attendance Summary - ${filterDay}`, 14, 22);
+    doc.text(`Generated Date: ${new Date().toLocaleDateString()}`, 14, 28);
 
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                loadingText.innerText = "विवरण रुजु गरिँदै र हाजिर सेभ हुँदैछ...";
-                try {
-                    const payload = {
-                        action: "submitAttendance",
-                        lionsId: lionsId,
-                        day: selectedDay,
-                        lat: pos.coords.latitude,
-                        lon: pos.coords.longitude,
-                        deviceId: navigator.userAgent
-                    };
+    let bodyRows = [];
+    let counter = 1;
 
-                    const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                    const msg = await response.text();
-                    
-                    loadingOverlay.classList.add('hidden');
-                    submitBtn.disabled = false;
+    currentReportData.present.forEach(p => {
+        bodyRows.push([counter++, p.id, p.name, p.club, p.desig, p.attendanceStatus === "Late Attendance" ? "LATE ATTENDANCE" : "PRESENT"]);
+    });
+    currentReportData.absent.forEach(a => {
+        bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
+    });
 
-                    if(msg === "Success") {
-                        showDialog("हाजिर सफल !", "तपाईँको डिजिटल हाजिर सफलतापूर्वक दर्ता भयो ।", true);
-                        document.getElementById('lionsId').value = "";
-                    } else {
-                        showDialog("हाजिर हुन सकेन", msg, false);
-                    }
-                } catch (error) {
-                    loadingOverlay.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । पुनः प्रयास गर्नुहोस्।", false);
-                }
-            }, () => {
-                loadingOverlay.classList.add('hidden');
-                submitBtn.disabled = false;
-                showDialog("लोकेसन समस्या", "कृपया मोबाइलको GPS अन गर्नुहोस् र ब्राउजरलाई लोकेसन अनुमति दिनुहोस् ।", false);
-            }, { enableHighAccuracy: true, timeout: 8000 });
-        }
+    doc.autoTable({
+        startY: 34,
+        head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Designation', 'Status']],
+        body: bodyRows,
+        headStyles: { fillColor: [30, 58, 138] },
+        theme: 'striped'
+    });
 
-        function showPage(pageId) {
-            document.getElementById('userSection').classList.add('hidden');
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('reportDashboard').classList.add('hidden');
-            document.getElementById(pageId).classList.remove('hidden');
-        }
+    doc.save(`Lions_Attendance_Report_${filterDay}.pdf`);
+}
 
-        async function adminLogin() {
-            const user = document.getElementById('user').value;
-            const pass = document.getElementById('pass').value;
+window.addEventListener('DOMContentLoaded', loadSystemStatus);
+</script>
 
-            if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस्।", false);
+<div class="max-w-md w-full mx-auto p-6 flex-grow flex flex-col justify-center relative">
 
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            loadingOverlay.classList.remove('hidden');
-            document.getElementById('loadingText').innerText = "एडमिन विवरण जाँच्दै...";
+    <div id="customDialog" class="hidden fixed inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-50 p-6 text-center">
+        <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center max-w-sm w-full border-t-8 border-blue-900">
+            <div id="dialogIcon" class="text-4xl mb-2"></div>
+            <h3 id="dialogTitle" class="text-xl font-bold mb-2">शीर्षक</h3>
+            <p id="dialogMessage" class="text-sm text-gray-600 font-medium mb-6">सन्देश</p>
+            <button id="dialogBtn" onclick="closeDialog()" class="w-full bg-blue-900 text-white p-2 rounded font-bold transition">OK</button>
+        </div>
+    </div>
 
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: "adminLogin", username: user, password: pass })
-                });
-                const result = await response.json();
-                loadingOverlay.classList.add('hidden');
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 p-6 text-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-xs w-full">
+            <div class="loader mb-4"></div>
+            <p id="loadingText" class="text-sm font-bold text-gray-800">प्रक्रिया सुरु हुँदैछ...</p>
+        </div>
+    </div>
 
-                if(result.status === "success") {
-                    showPage('reportDashboard');
-                    updateAdminPanelUI(result.day1Active, result.day2Active, result.day3Active);
-                    loadReport();
-                } else {
-                    showDialog("लगइन असफल", result.message || "विवरण मिलेन ।", false);
-                }
-            } catch (e) {
-                loadingOverlay.classList.add('hidden');
-                showDialog("सिस्टम एरर", "गुगल स्क्रिप्टसँग जडान हुन सकेन।", false);
-            }
-        }
+    <div class="relative bg-white p-6 rounded-lg shadow-lg" id="userSection">
+        <div class="absolute top-3 right-3">
+            <button onclick="showPage('loginForm')" class="text-xs font-bold text-blue-900 hover:text-blue-950 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded transition shadow-sm">
+                🔒 Admin Login
+            </button>
+        </div>
 
-        function updateAdminPanelUI(d1, d2, d3) {
-            document.getElementById('d1SheetStatus').innerText = "Status: " + d1;
-            document.getElementById('d2SheetStatus').innerText = "Status: " + d2;
-            document.getElementById('d3SheetStatus').innerText = "Status: " + d3;
-            
-            setButtonStyle('btnStartD1', d1);
-            setButtonStyle('btnStartD2', d2);
-            setButtonStyle('btnStartD3', d3);
-        }
+        <div class="pt-4">
+            <h2 class="text-2xl font-bold text-blue-900 mb-0.5 text-center">Lions International</h2>
+            <h3 class="text-xl font-semibold text-blue-800 mb-0.5 text-center">District 325 F</h3>
+            <p class="text-sm font-bold text-gray-500 mb-4 text-center tracking-wide">Digital Attendance System</p>
 
-        function setButtonStyle(btnId, status) {
-            const btn = document.getElementById(btnId);
-            if(status !== "Active") {
-                btn.disabled = true;
-                btn.className = "bg-gray-400 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-not-allowed w-full mt-1";
-            } else {
-                btn.disabled = false;
-                btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
-            }
-        }
+            <div id="statusIndicator" class="text-center text-xs sm:text-sm font-medium p-2 rounded bg-gray-100 text-gray-600 mb-4">स्थिति लोड हुँदैछ...</div>
 
-        function startLiveAttendance(day) {
-            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली एक्टिभ छ ।", true);
-        }
+            <div id="countdownBox" class="text-center text-xs font-bold p-2 rounded bg-gray-100 text-gray-600 mb-4">
+                Attendance time not started
+            </div>
 
-        // 🌟 युनिभर्सल र क्लिन डिजाइन (Dues कार्ड हटाइएको)
-        async function loadReport() {
-            const filterDay = document.getElementById('reportDayFilter').value;
-            document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
-            
-            try {
-                const response = await fetch(SCRIPT_URL + "?action=getReport&day=" + filterDay);
-                const data = await response.json();
-                currentReportData = data;
-                
-                let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
-                if(data.present.length === 0) {
-                    html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
-                }
-                data.present.forEach(p => {
-                    html += `
-                    <div class="bg-white p-2.5 mb-2 shadow-sm rounded border present-row text-xs flex justify-between items-center">
-                        <div>
-                            <span class="font-bold text-gray-800 text-sm block">${p.name}</span>
-                            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${p.club} | ${p.desig}</span>
-                        </div>
-                        <span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Present</span>
-                    </div>`;
-                });
+            <label class="block text-xs font-bold text-gray-500 mb-1">Select Attendance Day:</label>
+            <select id="attendanceDay" onchange="startCountdown()" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700 text-sm">
+                <option value="Day-1">Attendance Day-1</option>
+                <option value="Day-2">Attendance Day-2</option>
+                <option value="Day-3">Attendance Day-3</option>
+            </select>
 
-                html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
-                if(data.absent.length === 0) {
-                    html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
-                }
-                data.absent.forEach(a => {
-                    html += `
-                    <div class="bg-white p-2.5 mb-2 shadow-sm rounded border absent-row flex justify-between items-center text-xs">
-                        <div>
-                            <span class="font-bold text-gray-800 text-sm block">${a.name}</span>
-                            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${a.club} | ID: ${a.id}</span>
-                        </div>
-                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
-                    </div>`;
-                });
-                document.getElementById('reportData').innerHTML = html;
-            } catch(e) {
-                document.getElementById('reportData').innerHTML = "<p class='text-center text-xs text-red-500 font-bold py-2'>रिपोर्ट लोड गर्न सकिएन । पुनः प्रयास गर्नुहोस् ।</p>";
-            }
-        }
+            <input type="text" id="lionsId" placeholder="Membership Number" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
+            <button id="submitBtn" onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition text-sm">SUBMIT ATTENDANCE</button>
+        </div>
+    </div>
 
-        // 📊 सफा Excel (.xlsx) रिपोर्ट जेनेरेट फङ्सन
-        function downloadExcelReport() {
-            const filterDay = document.getElementById('reportDayFilter').value;
-            let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "Attendance Status"]];
-            
-            let counter = 1;
-            currentReportData.present.forEach(p => {
-                rows.push([counter++, p.id, p.name, p.club, p.desig, "PRESENT"]);
-            });
-            currentReportData.absent.forEach(a => {
-                rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
-            });
+    <div id="loginForm" class="hidden bg-gray-200 p-6 rounded-lg shadow-md border-t-4 border-gray-700">
+        <h3 class="text-lg font-bold text-gray-800 text-center mb-4">Admin Login Panel</h3>
+        <input type="text" id="user" placeholder="Username" class="w-full border p-2 mb-2 rounded bg-white text-sm">
+        <input type="password" id="pass" placeholder="Password" class="w-full border p-2 mb-4 rounded bg-white text-sm">
+        <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded font-bold hover:bg-gray-900 transition text-sm mb-2">LOGIN ADMIN</button>
+        <button onclick="showPage('userSection')" class="w-full text-xs text-gray-600 text-center underline font-semibold mt-2">← Back to Attendance Form</button>
+    </div>
 
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
-            XLSX.writeFile(wb, `Lions_Attendance_Report_${filterDay}.xlsx`);
-        }
+    <div id="reportDashboard" class="hidden bg-white p-4 rounded-lg shadow-lg mt-4 max-h-[85vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-2 mb-3">
+            <h2 class="text-md font-bold text-gray-800">Admin Control Room</h2>
+            <button onclick="showPage('userSection'); loadSystemStatus();" class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-bold">Logout</button>
+        </div>
 
-        // 📄 सफा PDF (.pdf) रिपोर्ट जेनेरेट फङ्सन
-        function downloadPDFReport() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const filterDay = document.getElementById('reportDayFilter').value;
-
-            doc.setFontSize(16);
-            doc.text("Lions International District 325 F", 14, 15);
-            doc.setFontSize(12);
-            doc.text(`Digital Attendance Summary - ${filterDay}`, 14, 22);
-            doc.text(`Generated Date: ${new Date().toLocaleDateString()}`, 14, 28);
-
-            let bodyRows = [];
-            let counter = 1;
-            
-            currentReportData.present.forEach(p => {
-                bodyRows.push([counter++, p.id, p.name, p.club, p.desig, "PRESENT"]);
-            });
-            currentReportData.absent.forEach(a => {
-                bodyRows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT"]);
-            });
-
-            doc.autoTable({
-                startY: 34,
-                head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Designation', 'Status']],
-                body: bodyRows,
-                headStyles: { fillColor: [30, 58, 138] },
-                theme: 'striped'
-            });
-
-            doc.save(`Lions_Attendance_Report_${filterDay}.pdf`);
-        }
-
-        window.addEventListener('DOMContentLoaded', loadSystemStatus);
-    </script>
-
-    <div class="max-w-md w-full mx-auto p-6 flex-grow flex flex-col justify-center relative">
-        
-        <div id="customDialog" class="hidden fixed inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-50 p-6 text-center">
-            <div class="bg-white p-6 rounded-xl shadow-2xl flex flex-col items-center max-w-sm w-full border-t-8 border-blue-900">
-                <div id="dialogIcon" class="text-4xl mb-2"></div>
-                <h3 id="dialogTitle" class="text-xl font-bold mb-2">शीर्षक</h3>
-                <p id="dialogMessage" class="text-sm text-gray-600 font-medium mb-6">सन्देश</p>
-                <button id="dialogBtn" onclick="closeDialog()" class="w-full bg-blue-900 text-white p-2 rounded font-bold transition">OK</button>
+        <div class="grid grid-cols-3 gap-1 mb-4">
+            <div class="p-1 bg-gray-50 rounded border text-left">
+                <span class="font-bold text-[9px] block text-gray-600" id="d1SheetStatus">Day-1 Status:</span>
+                <button id="btnStartD1" onclick="startLiveAttendance('Day-1')">START LIVE</button>
+            </div>
+            <div class="p-1 bg-gray-50 rounded border text-left">
+                <span class="font-bold text-[9px] block text-gray-600" id="d2SheetStatus">Day-2 Status:</span>
+                <button id="btnStartD2" onclick="startLiveAttendance('Day-2')">START LIVE</button>
+            </div>
+            <div class="p-1 bg-gray-50 rounded border text-left">
+                <span class="font-bold text-[9px] block text-gray-600" id="d3SheetStatus">Day-3 Status:</span>
+                <button id="btnStartD3" onclick="startLiveAttendance('Day-3')">START LIVE</button>
             </div>
         </div>
 
-        <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center z-50 p-6 text-center">
-            <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center max-w-xs w-full">
-                <div class="loader mb-4"></div>
-                <p id="loadingText" class="text-sm font-bold text-gray-800">प्रक्रिया सुरु हुँदैछ...</p>
+        <div class="bg-blue-50 p-2.5 rounded border border-blue-200 mb-4">
+            <label class="block text-[11px] font-bold text-blue-900 mb-1">Filter Report By Day:</label>
+            <div class="flex gap-2 mb-2">
+                <select id="reportDayFilter" onchange="loadReport()" class="flex-grow border p-1 rounded bg-white text-xs font-bold text-gray-700">
+                    <option value="Day-1">Day-1 Attendance Report</option>
+                    <option value="Day-2">Day-2 Attendance Report</option>
+                    <option value="Day-3">Day-3 Attendance Report</option>
+                </select>
+                <button onclick="loadReport()" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-green-700 transition">Refresh</button>
             </div>
-        </div>
-        
-        <div class="relative bg-white p-6 rounded-lg shadow-lg" id="userSection">
-            <div class="absolute top-3 right-3">
-                <button onclick="showPage('loginForm')" class="text-xs font-bold text-blue-900 hover:text-blue-950 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded transition shadow-sm">
-                    🔒 Admin Login
+
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-blue-200">
+                <button onclick="downloadExcelReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-1.5 rounded text-[11px] transition shadow flex items-center justify-center gap-1">
+                    📊 Export Excel (.xlsx)
+                </button>
+                <button onclick="downloadPDFReport()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold p-1.5 rounded text-[11px] transition shadow flex items-center justify-center gap-1">
+                    📄 Export PDF (.pdf)
                 </button>
             </div>
-
-            <div class="pt-4">
-                <h2 class="text-2xl font-bold text-blue-900 mb-0.5 text-center">Lions International</h2>
-                <h3 class="text-xl font-semibold text-blue-800 mb-0.5 text-center">District 325 F</h3>
-                <p class="text-sm font-bold text-gray-500 mb-4 text-center tracking-wide">Digital Attendance System</p>
-                
-                <div id="statusIndicator" class="text-center text-xs sm:text-sm font-medium p-2 rounded bg-gray-100 text-gray-600 mb-4">स्थिति लोड हुँदैछ...</div>
-                
-                <label class="block text-xs font-bold text-gray-500 mb-1">Select Attendance Day:</label>
-                <select id="attendanceDay" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700 text-sm">
-                    <option value="Day-1">Attendance Day-1</option>
-                    <option value="Day-2">Attendance Day-2</option>
-                    <option value="Day-3">Attendance Day-3</option>
-                </select>
-
-                <input type="text" id="lionsId" placeholder="Membership Number" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
-                <button id="submitBtn" onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition text-sm">SUBMIT ATTENDANCE</button>
-            </div>
         </div>
 
-        <div id="loginForm" class="hidden bg-gray-200 p-6 rounded-lg shadow-md border-t-4 border-gray-700">
-            <h3 class="text-lg font-bold text-gray-800 text-center mb-4">Admin Login Panel</h3>
-            <input type="text" id="user" placeholder="Username" class="w-full border p-2 mb-2 rounded bg-white text-sm">
-            <input type="password" id="pass" placeholder="Password" class="w-full border p-2 mb-4 rounded bg-white text-sm">
-            <button onclick="adminLogin()" class="w-full bg-gray-800 text-white p-2 rounded font-bold hover:bg-gray-900 transition text-sm mb-2">LOGIN ADMIN</button>
-            <button onclick="showPage('userSection')" class="w-full text-xs text-gray-600 text-center underline font-semibold mt-2">← Back to Attendance Form</button>
-        </div>
-
-        <div id="reportDashboard" class="hidden bg-white p-4 rounded-lg shadow-lg mt-4 max-h-[85vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b pb-2 mb-3">
-                <h2 class="text-md font-bold text-gray-800">Admin Control Room</h2>
-                <button onclick="showPage('userSection'); loadSystemStatus();" class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-bold">Logout</button>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-1 mb-4">
-                <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[9px] block text-gray-600" id="d1SheetStatus">Day-1 Status:</span>
-                    <button id="btnStartD1" onclick="startLiveAttendance('Day-1')">START LIVE</button>
-                </div>
-                <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[9px] block text-gray-600" id="d2SheetStatus">Day-2 Status:</span>
-                    <button id="btnStartD2" onclick="startLiveAttendance('Day-2')">START LIVE</button>
-                </div>
-                <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[9px] block text-gray-600" id="d3SheetStatus">Day-3 Status:</span>
-                    <button id="btnStartD3" onclick="startLiveAttendance('Day-3')">START LIVE</button>
-                </div>
-            </div>
-
-            <div class="bg-blue-50 p-2.5 rounded border border-blue-200 mb-4">
-                <label class="block text-[11px] font-bold text-blue-900 mb-1">Filter Report By Day:</label>
-                <div class="flex gap-2 mb-2">
-                    <select id="reportDayFilter" onchange="loadReport()" class="flex-grow border p-1 rounded bg-white text-xs font-bold text-gray-700">
-                        <option value="Day-1">Day-1 Attendance Report</option>
-                        <option value="Day-2">Day-2 Attendance Report</option>
-                        <option value="Day-3">Day-3 Attendance Report</option>
-                    </select>
-                    <button onclick="loadReport()" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-green-700 transition">Refresh</button>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-blue-200">
-                    <button onclick="downloadExcelReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-1.5 rounded text-[11px] transition shadow flex items-center justify-center gap-1">
-                        📊 Export Excel (.xlsx)
-                    </button>
-                    <button onclick="downloadPDFReport()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold p-1.5 rounded text-[11px] transition shadow flex items-center justify-center gap-1">
-                        📄 Export PDF (.pdf)
-                    </button>
-                </div>
-            </div>
-
-            <div id="reportData" class="text-left"></div>
-        </div>
-
+        <div id="reportData" class="text-left"></div>
     </div>
 
-    <div class="fixed bottom-0 left-0 right-0 p-3 text-center border-t bg-white shadow-md z-40">
-        <p class="text-xs font-semibold text-gray-500">
-            Design by: <a href="https://www.facebook.com/nirajan.aryal.92" target="_blank" class="text-blue-600 hover:underline font-bold">Nirajan Aryal</a> | 📱 <span class="text-gray-700 font-bold">9851113811</span>
-        </p>
-    </div>
+</div>
+
+<div class="fixed bottom-0 left-0 right-0 p-3 text-center border-t bg-white shadow-md z-40">
+    <p class="text-xs font-semibold text-gray-500">
+        Design by: <a href="https://www.facebook.com/nirajan.aryal.92" target="_blank" class="text-blue-600 hover:underline font-bold">Nirajan Aryal</a> | 📱 <span class="text-gray-700 font-bold">9851113811</span>
+    </p>
+</div>
 
 </body>
 </html>
