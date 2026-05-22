@@ -27,7 +27,6 @@
         // ⚠️ यहाँ आफ्नो गुगल वेब एपको हालैको नयाँ URL पेस्ट गर्नुहोला
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
 
-        // कस्टम डायलग बक्स फङ्सन
         function showDialog(title, message, isSuccess = true) {
             const dialogBox = document.getElementById('customDialog');
             const dialogTitle = document.getElementById('dialogTitle');
@@ -54,7 +53,6 @@
             document.getElementById('customDialog').classList.add('hidden');
         }
 
-        // सिटको स्थिति अनुसार ब्यानरको एडभान्स डिजाइन मिलाउने
         async function loadSystemStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             try {
@@ -77,7 +75,7 @@
                     statusIndicator.innerText = "● System Live: " + activeDays.join(" & ") + " Active";
                 } else {
                     daySelect.value = "Day-1";
-                    // 🌟 मोबाइल रेस्पोन्सिभ फन्ट र ट्र्याकिङ यहाँ फिक्स गरिएको छ
+                    // 🌟 मोबाइल फन्ट साइज फिक्स (एकै लाइनमा देखिने)
                     statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4 tracking-tight sm:tracking-normal";
                     statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
                 }
@@ -87,7 +85,6 @@
             }
         }
 
-        // हाजिर सबमिट गर्ने प्रक्रिया
         async function submitAttendance() {
             const lionsId = document.getElementById('lionsId').value;
             const selectedDay = document.getElementById('attendanceDay').value;
@@ -165,7 +162,7 @@
                 if(result.status === "success") {
                     showPage('reportDashboard');
                     updateAdminPanelUI(result.day1Active, result.day2Active, result.day3Active);
-                    loadReport();
+                    loadReport(); // रिपोर्ट स्वतः लोड हुने
                 } else {
                     showDialog("लगइन असफल", result.message || "विवरण मिलेन ।", false);
                 }
@@ -189,38 +186,65 @@
             const btn = document.getElementById(btnId);
             if(status !== "Active") {
                 btn.disabled = true;
-                btn.className = "bg-gray-400 text-white text-xs px-2 py-1 rounded font-bold cursor-not-allowed w-full mt-1";
+                btn.className = "bg-gray-400 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-not-allowed w-full mt-1";
             } else {
                 btn.disabled = false;
-                btn.className = "bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold hover:bg-blue-700 w-full mt-1";
+                btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
             }
         }
 
         function startLiveAttendance(day) {
-            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो ।", true);
+            showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली एक्टिभ छ ।", true);
         }
 
+        // 🌟 नयाँ डे-वाइज रिपोर्ट लोड गर्ने फङ्सन (Dues कार्ड सहित)
         async function loadReport() {
-            document.getElementById('reportData').innerHTML = "रिपोर्ट लोड हुँदैछ...";
+            const filterDay = document.getElementById('reportDayFilter').value;
+            document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
+            
             try {
-                const response = await fetch(SCRIPT_URL + "?action=getReport");
+                const response = await fetch(SCRIPT_URL + "?action=getReport&day=" + filterDay);
                 const data = await response.json();
                 
-                let html = `<h3 class="font-bold text-green-600 mb-2">उपस्थित साथीहरू (${data.present.length})</h3>`;
+                let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
+                if(data.present.length === 0) {
+                    html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
+                }
                 data.present.forEach(p => {
-                    html += `<div class="bg-white p-2 mb-2 shadow-sm present-row text-sm font-semibold">✅ ${p.name} - <span class="text-xs text-gray-500">${p.club}</span></div>`;
+                    html += `
+                    <div class="bg-white p-2.5 mb-2 shadow-sm rounded border present-row text-xs flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-gray-800">${p.name}</span>
+                            <span class="block text-[10px] text-gray-500">${p.club} | ${p.desig}</span>
+                        </div>
+                        <div class="flex gap-1">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${p.districtDues}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${p.intlDues}</span>
+                        </div>
+                    </div>`;
                 });
 
-                html += `<h3 class="font-bold text-red-600 mt-6 mb-2">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
+                html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
+                if(data.absent.length === 0) {
+                    html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
+                }
                 data.absent.forEach(a => {
-                    html += `<div class="bg-white p-2 mb-2 shadow-sm absent-row flex justify-between items-center text-sm">
-                        <div>❌ <span class="font-bold">${a.name}</span> - <span class="text-xs text-gray-500">${a.club}</span></div>
-                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई हलको क्युआर कोड देखाउनुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold">Verify & Show QR</button>
+                    html += `
+                    <div class="bg-white p-2.5 mb-2 shadow-sm rounded border absent-row flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-gray-800">${a.name}</span>
+                            <span class="block text-[10px] text-gray-500">${a.club} | ID: ${a.id}</span>
+                            <div class="flex gap-1 mt-1">
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${a.districtDues}</span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${a.intlDues}</span>
+                            </div>
+                        </div>
+                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
                     </div>`;
                 });
                 document.getElementById('reportData').innerHTML = html;
             } catch(e) {
-                document.getElementById('reportData').innerHTML = "रिपोर्ट लोड गर्न सकिएन ।";
+                document.getElementById('reportData').innerHTML = "<p class='text-center text-xs text-red-500 font-bold py-2'>रिपोर्ट लोड गर्न सकिएन । पुनः प्रयास गर्नुहोस् ।</p>";
             }
         }
 
@@ -266,7 +290,7 @@
                     <option value="Day-3">Attendance Day-3</option>
                 </select>
 
-                <input type="text" id="lionsId" placeholder="Membership Number" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
+                <input type="text" id="lionsId" placeholder="Lions ID / Reg No" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
                 <button id="submitBtn" onclick="submitAttendance()" class="w-full bg-blue-900 text-white p-3 rounded font-bold tracking-wide hover:bg-blue-950 transition text-sm">SUBMIT ATTENDANCE</button>
             </div>
         </div>
@@ -280,28 +304,38 @@
         </div>
 
         <div id="reportDashboard" class="hidden bg-white p-4 rounded-lg shadow-lg mt-4 max-h-[85vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b pb-2 mb-4">
-                <h2 class="text-lg font-bold text-gray-800">Admin Control Room</h2>
+            <div class="flex justify-between items-center border-b pb-2 mb-3">
+                <h2 class="text-md font-bold text-gray-800">Admin Control Room</h2>
                 <button onclick="showPage('userSection'); loadSystemStatus();" class="text-xs bg-gray-500 text-white px-2 py-1 rounded font-bold">Logout</button>
             </div>
             
             <div class="grid grid-cols-3 gap-1 mb-4">
                 <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[10px] block text-gray-700" id="d1SheetStatus">Day-1 Status:</span>
+                    <span class="font-bold text-[9px] block text-gray-600" id="d1SheetStatus">Day-1 Status:</span>
                     <button id="btnStartD1" onclick="startLiveAttendance('Day-1')">START LIVE</button>
                 </div>
                 <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[10px] block text-gray-700" id="d2SheetStatus">Day-2 Status:</span>
+                    <span class="font-bold text-[9px] block text-gray-600" id="d2SheetStatus">Day-2 Status:</span>
                     <button id="btnStartD2" onclick="startLiveAttendance('Day-2')">START LIVE</button>
                 </div>
                 <div class="p-1 bg-gray-50 rounded border text-left">
-                    <span class="font-bold text-[10px] block text-gray-700" id="d3SheetStatus">Day-3 Status:</span>
+                    <span class="font-bold text-[9px] block text-gray-600" id="d3SheetStatus">Day-3 Status:</span>
                     <button id="btnStartD3" onclick="startLiveAttendance('Day-3')">START LIVE</button>
                 </div>
             </div>
 
-            <h2 class="text-md font-bold mb-2 text-gray-800">Live Attendance Report</h2>
-            <button onclick="loadReport()" class="bg-green-600 text-white px-4 py-1.5 rounded mb-4 text-xs font-semibold shadow hover:bg-green-700 transition">Refresh Data</button>
+            <div class="bg-blue-50 p-2.5 rounded border border-blue-200 mb-4">
+                <label class="block text-[11px] font-bold text-blue-900 mb-1">Filter Report By Day:</label>
+                <div class="flex gap-2">
+                    <select id="reportDayFilter" onchange="loadReport()" class="flex-grow border p-1 rounded bg-white text-xs font-bold text-gray-700">
+                        <option value="Day-1">Day-1 Attendance Report</option>
+                        <option value="Day-2">Day-2 Attendance Report</option>
+                        <option value="Day-3">Day-3 Attendance Report</option>
+                    </select>
+                    <button onclick="loadReport()" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-green-700 transition">Refresh</button>
+                </div>
+            </div>
+
             <div id="reportData" class="text-left"></div>
         </div>
 
