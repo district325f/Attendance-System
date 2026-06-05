@@ -27,7 +27,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between pb-20">
 
     <script>
-        // ⚠️ यहाँ आफ्नो गुगल वेब एपको नयाँ कपी गरिएको URL हाल्नुहोस्
+        // ⚠️ यहाँ आफ्नो गुगल वेब एपको भर्खरै जेनरेट भएको नयाँ URL अनिवार्य रूपमा पेस्ट गर्नुहोस्
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
         
         let currentReportData = { present: [], absent: [] };
@@ -52,6 +52,7 @@
             document.getElementById('customDialog').classList.add('hidden');
         }
 
+        // ⏱️ १ घण्टे काउन्टडाउन घडी फिचर यथावत
         function startCountdownTimer(startTimeMs, serverTimeMs) {
             if(countdownInterval) clearInterval(countdownInterval);
             
@@ -78,6 +79,7 @@
             }, 1000);
         }
 
+        // 🔒 कम्बुबक्स लक/अनकल सुधारेको र जडान सुरक्षित लजिक
         async function loadSystemStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             const timerBox = document.getElementById('countdownBox');
@@ -234,6 +236,7 @@
             showDialog("लाइभ स्थिति", day + " प्रणाली एक्टिभ छ । सिटबाट नियन्त्रण गर्नुहोस्।", true);
         }
 
+        // 📊 परिमार्जित डे-वाइज रिपोर्ट (Dues र प्रिडिजाइन कार्ड यथावत फिक्स)
         async function loadReport() {
             const filterDay = document.getElementById('reportDayFilter').value;
             document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ...</p>";
@@ -243,9 +246,7 @@
                 const data = await response.json();
                 currentReportData = data;
                 
-                let html = `<div class="flex justify-between items-center mb-2 mt-2">
-                                <h3 class="font-bold text-green-600 text-sm">उपस्थित सूची (${data.present.length})</h3>
-                            </div>`;
+                let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
                 if(data.present.length === 0) html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
                 
                 data.present.forEach(p => {
@@ -258,15 +259,13 @@
                             <span class="block text-[10px] text-gray-500">${p.club} | ${p.desig}</span>
                         </div>
                         <div class="flex gap-1">
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${p.districtDues}</span>
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${p.intlDues}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${p.districtDues}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${p.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${p.intlDues}</span>
                         </div>
                     </div>`;
                 });
 
-                html += `<div class="flex justify-between items-center mt-6 mb-2">
-                            <h3 class="font-bold text-red-600 text-sm">हाजिर हुन बाँकी (Absent) (${data.absent.length})</h3>
-                        </div>`;
+                html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
                 if(data.absent.length === 0) html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसके।</p>`;
                 
                 data.absent.forEach(a => {
@@ -276,11 +275,11 @@
                             <span class="font-bold text-gray-800">${a.name}</span>
                             <span class="block text-[10px] text-gray-500">${a.club} | ID: ${a.id}</span>
                             <div class="flex gap-1 mt-1">
-                                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${a.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${a.districtDues}</span>
-                                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${a.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${a.intlDues}</span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.districtDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Dist: ${a.districtDues}</span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${a.intlDues === 'Paid' ? 'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">Intl: ${a.intlDues}</span>
                             </div>
                         </div>
-                        <button onclick="showDialog('मद्दत कक्ष', 'सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
+                        <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई क्युआर कोड स्क्यान गर्न भन्नुहोस् र मोबाइलबाट आईडी ${a.id} सबमिट गराउनुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify QR</button>
                     </div>`;
                 });
                 document.getElementById('reportData').innerHTML = html;
@@ -289,15 +288,16 @@
             }
         }
 
+        // 📈 एक्सेल डाउनलोड फङ्सन (यथावत र फिक्स)
         function downloadExcelReport() {
             const filterDay = document.getElementById('reportDayFilter').value;
-            let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "District Dues", "Intl Dues", "Status", "Timing"]];
+            let rows = [["S.N.", "Lions ID", "Full Name", "Lions Club Name", "Designation", "Status", "Timing"]];
             let counter = 1;
             currentReportData.present.forEach(p => {
-                rows.push([counter++, p.id, p.name, p.club, p.desig, p.districtDues, p.intlDues, "PRESENT", p.timing]);
+                rows.push([counter++, p.id, p.name, p.club, p.desig, "PRESENT", p.timing]);
             });
             currentReportData.absent.forEach(a => {
-                rows.push([counter++, a.id, a.name, a.club, a.desig, a.districtDues, a.intlDues, "ABSENT", "-"]);
+                rows.push([counter++, a.id, a.name, a.club, a.desig, "ABSENT", "-"]);
             });
             const ws = XLSX.utils.aoa_to_sheet(rows);
             const wb = XLSX.utils.book_new();
@@ -305,6 +305,7 @@
             XLSX.writeFile(wb, `Lions_Report_${filterDay}.xlsx`);
         }
 
+        // 📄 पिडियाफ डाउनलोड फङ्सन (यथावत र फिक्स)
         function downloadPDFReport() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -318,15 +319,15 @@
             let bodyRows = [];
             let counter = 1;
             currentReportData.present.forEach(p => {
-                bodyRows.push([counter++, p.id, p.name, p.club, p.districtDues, p.intlDues, "PRESENT", p.timing]);
+                bodyRows.push([counter++, p.id, p.name, p.club, "PRESENT", p.timing]);
             });
             currentReportData.absent.forEach(a => {
-                bodyRows.push([counter++, a.id, a.name, a.club, a.districtDues, a.intlDues, "ABSENT", "-"]);
+                bodyRows.push([counter++, a.id, a.name, a.club, "ABSENT", "-"]);
             });
 
             doc.autoTable({
                 startY: 28,
-                head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Dist Dues', 'Intl Dues', 'Status', 'Timing']],
+                head: [['S.N.', 'Lions ID', 'Name', 'Lions Club', 'Status', 'Timing']],
                 body: bodyRows,
                 headStyles: { fillColor: [30, 58, 138] },
                 theme: 'striped'
