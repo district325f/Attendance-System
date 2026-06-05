@@ -167,7 +167,7 @@ async function submitAttendance() {
             }
         } catch (error) {
             loadingOverlay.classList.add('hidden'); submitBtn.disabled = false;
-            showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । पुनः प्रयास गर्नुहोस्।", false);
+            showDialog("सिस्टम एरर", "सर्भरसँग जडान हुन सकेन । पुनः प्रयास गर्नुहोस् ।", false);
         }
     }, () => {
         loadingOverlay.classList.add('hidden'); submitBtn.disabled = false;
@@ -186,7 +186,7 @@ async function adminLogin() {
     const user = document.getElementById('user').value;
     const pass = document.getElementById('pass').value;
 
-    if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस्।", false);
+    if(!user || !pass) return showDialog("चेतावनी", "कृपया युजरनेम र पासवर्ड दुवै हाल्नुहोस् ।", false);
 
     const loadingOverlay = document.getElementById('loadingOverlay');
     loadingOverlay.classList.remove('hidden');
@@ -223,7 +223,7 @@ async function loadReport() {
         document.getElementById('d1SheetStatus').innerText = "Active Event: " + data.activeDay;
 
         let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
-        if(data.present.length === 0) html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
+        if(data.present.length === 0) html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन् ।</p>`;
 
         data.present.forEach(p => {
             html += `
@@ -239,7 +239,7 @@ async function loadReport() {
         });
 
         html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
-        if(data.absent.length === 0) html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
+        if(data.absent.length === 0) html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन् ।</p>`;
 
         data.absent.forEach(a => {
             html += `
