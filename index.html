@@ -23,9 +23,9 @@
       animation: spin 1s linear infinite;
       display: inline-block;
     }
-    @keyframes spin { 
-      0% { transform: rotate(0deg); } 
-      100% { transform: rotate(360deg); } 
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -34,11 +34,11 @@
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0zczW1dhKkdFDmbvsXgTQi1hG9TPPLXXzbbyeHCeba2wjolynPB0RTNtdsWy0S1jR/exec";
-
 const PRESIDENTS_MEET_DAY = "Presidents Meet";
 
 let currentReportData = { present: [], absent: [] };
 let attendanceStartTimes = {};
+let allTrainings = [];
 let countdownTimer = null;
 
 function showDialog(title, message, isSuccess = true) {
@@ -67,43 +67,87 @@ function closeDialog() {
   document.getElementById('customDialog').classList.add('hidden');
 }
 
-function setOptionStatus(optionId, status) {
-  const opt = document.getElementById(optionId);
-  if (opt) opt.disabled = (status !== "Active");
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function populateTrainingControls(trainings) {
+  const attendanceDay = document.getElementById('attendanceDay');
+  const reportFilter = document.getElementById('reportDayFilter');
+
+  const previousAttendance = attendanceDay.value;
+  const previousReport = reportFilter.value;
+
+  attendanceDay.innerHTML = "";
+  reportFilter.innerHTML = "";
+
+  const activeTrainings = trainings.filter(t => t.status === "Active");
+
+  if (activeTrainings.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Attendance अहिले बन्द छ";
+    opt.disabled = true;
+    opt.selected = true;
+    attendanceDay.appendChild(opt);
+  } else {
+    activeTrainings.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.day;
+      opt.textContent = t.day + (t.sessionDay ? " (" + t.sessionDay + ")" : "");
+      attendanceDay.appendChild(opt);
+    });
+
+    if (activeTrainings.some(t => t.day === previousAttendance)) {
+      attendanceDay.value = previousAttendance;
+    } else {
+      attendanceDay.value = activeTrainings[activeTrainings.length - 1].day;
+    }
+  }
+
+  trainings.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t.day;
+    opt.textContent = t.day + " Attendance Report";
+    reportFilter.appendChild(opt);
+  });
+
+  if (trainings.some(t => t.day === previousReport)) {
+    reportFilter.value = previousReport;
+  } else if (trainings.length > 0) {
+    reportFilter.value = trainings[0].day;
+  }
 }
 
 async function loadSystemStatus() {
   const statusIndicator = document.getElementById('statusIndicator');
 
   try {
-    const response = await fetch(SCRIPT_URL + "?action=getSystemStatus");
+    const response = await fetch(SCRIPT_URL + "?action=getSystemStatus&_=" + Date.now());
     const status = await response.json();
-    const daySelect = document.getElementById('attendanceDay');
 
-    attendanceStartTimes = {
-      "Day-1": status.day1Start,
-      "Day-2": status.day2Start,
-      "Day-3": status.day3Start,
-      "Presidents Meet": status.presidentsMeetStart
-    };
+    allTrainings = Array.isArray(status.trainings) ? status.trainings : [];
 
-    let activeDays = [];
-    if (status.day1 === "Active") activeDays.push("Day-1");
-    if (status.day2 === "Active") activeDays.push("Day-2");
-    if (status.day3 === "Active") activeDays.push("Day-3");
-    if (status.presidentsMeet === "Active") activeDays.push("Presidents Meet");
+    attendanceStartTimes = {};
+    allTrainings.forEach(t => {
+      attendanceStartTimes[t.day] = t.startTime;
+    });
 
-    setOptionStatus("optDay1", status.day1);
-    setOptionStatus("optDay2", status.day2);
-    setOptionStatus("optDay3", status.day3);
-    setOptionStatus("optPresidentsMeet", status.presidentsMeet);
+    populateTrainingControls(allTrainings);
+
+    const activeDays = allTrainings
+      .filter(t => t.status === "Active")
+      .map(t => t.day);
 
     if (activeDays.length > 0) {
-      daySelect.value = activeDays[activeDays.length - 1];
       statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-green-100 text-green-800 mb-4 tracking-tight sm:tracking-normal";
       statusIndicator.innerText = "● System Live: " + activeDays.join(" & ") + " Active";
     } else {
-      daySelect.value = "Day-1";
       statusIndicator.className = "text-center text-xs sm:text-sm font-bold p-2 rounded bg-red-100 text-red-700 mb-4 tracking-tight sm:tracking-normal";
       statusIndicator.innerText = "✕ Attendance Closed (अहिले बन्द गरिएको छ ।)";
     }
@@ -119,14 +163,14 @@ async function loadSystemStatus() {
 function startCountdown() {
   if (countdownTimer) clearInterval(countdownTimer);
 
-  countdownTimer = setInterval(() => {
+  const updateCountdown = () => {
     const selectedDay = document.getElementById('attendanceDay').value;
     const box = document.getElementById('countdownBox');
     const startTime = attendanceStartTimes[selectedDay];
 
     if (!box) return;
 
-    if (!startTime) {
+    if (!selectedDay || !startTime) {
       box.innerText = "Attendance time not started";
       box.className = "text-center text-xs font-bold p-2 rounded bg-gray-100 text-gray-600 mb-4";
       return;
@@ -148,12 +192,19 @@ function startCountdown() {
 
     box.innerText = "Attendance Duration: " + min + "m " + sec + "s remaining";
     box.className = "text-center text-xs font-bold p-2 rounded bg-blue-100 text-blue-800 mb-4";
-  }, 1000);
+  };
+
+  updateCountdown();
+  countdownTimer = setInterval(updateCountdown, 1000);
 }
 
 async function submitAttendance() {
   const lionsId = document.getElementById('lionsId').value.trim();
   const selectedDay = document.getElementById('attendanceDay').value;
+
+  if (!selectedDay) {
+    return showDialog("Attendance बन्द छ", "अहिले कुनै training Active छैन ।", false);
+  }
 
   if (!lionsId) {
     return showDialog("चेतावनी !", "कृपया आफ्नो Membership Number हाल्नुहोस् ।", false);
@@ -240,7 +291,9 @@ async function adminLogin() {
 
     if (result.status === "success") {
       showPage('reportDashboard');
-      updateAdminPanelUI(result.day1Active, result.day2Active, result.day3Active, result.presidentsMeetActive);
+      allTrainings = Array.isArray(result.trainings) ? result.trainings : allTrainings;
+      populateTrainingControls(allTrainings);
+      updateAdminPanelUI(allTrainings);
       loadReport();
     } else {
       showDialog("लगइन असफल", result.message || "विवरण मिलेन ।", false);
@@ -252,23 +305,31 @@ async function adminLogin() {
   }
 }
 
-function updateAdminPanelUI(d1, d2, d3, pm) {
-  document.getElementById('d1SheetStatus').innerText = "Status: " + d1;
-  document.getElementById('d2SheetStatus').innerText = "Status: " + d2;
-  document.getElementById('d3SheetStatus').innerText = "Status: " + d3;
-  document.getElementById('pmSheetStatus').innerText = "Status: " + (pm || "Deactive");
+function updateAdminPanelUI(trainings) {
+  const grid = document.getElementById('adminTrainingGrid');
 
-  setButtonStyle('btnStartD1', d1);
-  setButtonStyle('btnStartD2', d2);
-  setButtonStyle('btnStartD3', d3);
-  setButtonStyle('btnStartPM', pm);
-}
+  if (!Array.isArray(trainings) || trainings.length === 0) {
+    grid.innerHTML = `<div class="col-span-2 p-2 bg-amber-50 border border-amber-200 rounded text-[11px] font-bold text-amber-700 text-center">
+      Attendance_Settings मा training भेटिएन ।
+    </div>`;
+    return;
+  }
 
-function setButtonStyle(btnId, status) {
-  const btn = document.getElementById(btnId);
-  if (!btn) return;
-  btn.disabled = false;
-  btn.className = "bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1";
+  grid.innerHTML = trainings.map(t => `
+    <div class="p-1 bg-gray-50 rounded border text-left">
+      <span class="font-bold text-[9px] block ${t.status === 'Active' ? 'text-green-700' : 'text-gray-600'}">
+        ${escapeHtml(t.day)} — Status: ${escapeHtml(t.status)}
+      </span>
+      <span class="text-[8px] text-gray-400 block">
+        ID: ${escapeHtml(t.trainingId)} | ${escapeHtml(t.sessionDay)}
+      </span>
+      <button
+        onclick='startLiveAttendance(${JSON.stringify(t.day)})'
+        class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold hover:bg-blue-700 w-full mt-1">
+        START LIVE
+      </button>
+    </div>
+  `).join("");
 }
 
 async function startLiveAttendance(day) {
@@ -285,8 +346,9 @@ async function startLiveAttendance(day) {
 
     if (result.status === "success") {
       showDialog("लाइभ सुरु भयो", day + " हाजिर प्रणाली सुरु भयो ।", true);
-      loadSystemStatus();
-      adminLogin();
+      await loadSystemStatus();
+      updateAdminPanelUI(allTrainings);
+      loadReport();
     } else {
       showDialog("Error", result.message || "Attendance start गर्न सकिएन ।", false);
     }
@@ -298,29 +360,47 @@ async function startLiveAttendance(day) {
 
 async function loadReport() {
   const filterDay = document.getElementById('reportDayFilter').value;
-  document.getElementById('reportData').innerHTML = "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
+
+  if (!filterDay) {
+    document.getElementById('reportData').innerHTML =
+      "<p class='text-center text-xs text-amber-600 font-bold py-2'>Attendance_Settings मा report training छैन ।</p>";
+    return;
+  }
+
+  document.getElementById('reportData').innerHTML =
+    "<p class='text-center text-sm font-semibold text-gray-500 py-4'>डाटा लोड हुँदैछ... कृपया पर्खिनुहोस्।</p>";
 
   try {
-    const response = await fetch(SCRIPT_URL + "?action=getReport&day=" + encodeURIComponent(filterDay));
+    const response = await fetch(
+      SCRIPT_URL + "?action=getReport&day=" + encodeURIComponent(filterDay) + "&_=" + Date.now()
+    );
+
     const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
     currentReportData = data;
 
     let html = `<h3 class="font-bold text-green-600 mb-2 mt-2 text-sm">उपस्थित सूची (${data.present.length})</h3>`;
 
     if (data.present.length === 0) {
-      html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो दिन कोही पनि हाजिर भएका छैनन्।</p>`;
+      html += `<p class="text-xs text-gray-400 italic pl-2 mb-4">यो training/session मा कोही पनि हाजिर भएका छैनन्।</p>`;
     }
 
     data.present.forEach(p => {
+      const isLate = p.attendanceStatus === 'Late Attendance';
+
       html += `
         <div class="bg-white p-2.5 mb-2 shadow-sm rounded border present-row text-xs flex justify-between items-center">
           <div>
-            <span class="font-bold text-gray-800 text-sm block">${p.name || ""}</span>
-            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${p.club || ""} | ${p.desig || ""}</span>
-            <span class="block text-[10px] text-gray-400 mt-0.5">ID: ${p.id || ""}</span>
+            <span class="font-bold text-gray-800 text-sm block">${escapeHtml(p.name)}</span>
+            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${escapeHtml(p.club)} | ${escapeHtml(p.desig)}</span>
+            <span class="block text-[10px] text-gray-400 mt-0.5">ID: ${escapeHtml(p.id)}</span>
           </div>
-          <span class="text-[10px] ${p.attendanceStatus === 'Late Attendance' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-2 py-0.5 rounded-full font-bold">
-            ${p.attendanceStatus === 'Late Attendance' ? 'Late Attendance' : 'Present'}
+          <span class="text-[10px] ${isLate ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} px-2 py-0.5 rounded-full font-bold">
+            ${isLate ? 'Late Attendance' : 'Present'}
           </span>
         </div>`;
     });
@@ -328,32 +408,36 @@ async function loadReport() {
     html += `<h3 class="font-bold text-red-600 mt-6 mb-2 text-sm">हाजिर हुन बाँकी (Absent List) (${data.absent.length})</h3>`;
 
     if (data.absent.length === 0) {
-      html += `<p class="text-xs text-green-500 italic pl-2 mb-4">सबै सहभागी हाजिर भइसकेका छन्।</p>`;
+      html += `<p class="text-xs text-green-500 italic pl-2 mb-4">यस training/session का सबै सहभागी हाजिर भइसकेका छन्।</p>`;
     }
 
     data.absent.forEach(a => {
       html += `
         <div class="bg-white p-2.5 mb-2 shadow-sm rounded border absent-row flex justify-between items-center text-xs">
           <div>
-            <span class="font-bold text-gray-800 text-sm block">${a.name || ""}</span>
-            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${a.club || ""} | ID: ${a.id || ""}</span>
-            <span class="block text-[10px] text-gray-400 mt-0.5">${a.desig || ""}</span>
+            <span class="font-bold text-gray-800 text-sm block">${escapeHtml(a.name)}</span>
+            <span class="block text-[11px] text-gray-500 font-medium mt-0.5">${escapeHtml(a.club)} | ID: ${escapeHtml(a.id)}</span>
+            <span class="block text-[10px] text-gray-400 mt-0.5">${escapeHtml(a.desig)}</span>
           </div>
-          <button onclick="showDialog('मद्दत कक्ष', 'यो सहभागीलाई Membership Number ${a.id} राखेर हाजिर गर्न भन्नुहोस् ।', true)" class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">Verify</button>
+          <button
+            onclick='showDialog("मद्दत कक्ष", ${JSON.stringify("यो सहभागीलाई Membership Number " + a.id + " राखेर हाजिर गर्न भन्नुहोस् ।")}, true)'
+            class="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700">
+            Verify
+          </button>
         </div>`;
     });
 
     document.getElementById('reportData').innerHTML = html;
 
   } catch (e) {
-    document.getElementById('reportData').innerHTML = "<p class='text-center text-xs text-red-500 font-bold py-2'>रिपोर्ट लोड गर्न सकिएन । पुनः प्रयास गर्नुहोस् ।</p>";
+    document.getElementById('reportData').innerHTML =
+      "<p class='text-center text-xs text-red-500 font-bold py-2'>रिपोर्ट लोड गर्न सकिएन । पुनः प्रयास गर्नुहोस् ।</p>";
   }
 }
 
 function downloadExcelReport() {
   const filterDay = document.getElementById('reportDayFilter').value;
   let rows = [["S.N.", "Membership No.", "Full Name", "Club Name", "Designation / Contact", "Attendance Status"]];
-
   let counter = 1;
 
   currentReportData.present.forEach(p => {
@@ -382,7 +466,7 @@ function downloadExcelReport() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
 
-  const safeName = filterDay.replace(/\s+/g, "_");
+  const safeName = filterDay.replace(/[^\w-]+/g, "_");
   XLSX.writeFile(wb, `Lions_Attendance_Report_${safeName}.xlsx`);
 }
 
@@ -431,7 +515,7 @@ function downloadPDFReport() {
     theme: 'striped'
   });
 
-  const safeName = filterDay.replace(/\s+/g, "_");
+  const safeName = filterDay.replace(/[^\w-]+/g, "_");
   doc.save(`Lions_Attendance_Report_${safeName}.pdf`);
 }
 
@@ -478,10 +562,7 @@ window.addEventListener('DOMContentLoaded', loadSystemStatus);
 
       <label class="block text-xs font-bold text-gray-500 mb-1">Select Attendance Day:</label>
       <select id="attendanceDay" onchange="startCountdown()" class="w-full border p-2 mb-4 rounded bg-gray-50 font-semibold text-gray-700 text-sm">
-        <option id="optDay1" value="Day-1">Attendance Day-1</option>
-        <option id="optDay2" value="Day-2">Attendance Day-2</option>
-        <option id="optDay3" value="Day-3">Attendance Day-3</option>
-        <option id="optPresidentsMeet" value="Presidents Meet">Presidents Meet Attendance</option>
+        <option value="">Training लोड हुँदैछ...</option>
       </select>
 
       <input type="text" id="lionsId" placeholder="Membership Number" class="w-full border p-2 mb-4 rounded text-center font-bold tracking-wider text-gray-800">
@@ -511,37 +592,18 @@ window.addEventListener('DOMContentLoaded', loadSystemStatus);
       </button>
     </div>
 
-    <div class="grid grid-cols-2 gap-1 mb-4">
-      <div class="p-1 bg-gray-50 rounded border text-left">
-        <span class="font-bold text-[9px] block text-gray-600" id="d1SheetStatus">Day-1 Status:</span>
-        <button id="btnStartD1" onclick="startLiveAttendance('Day-1')">START LIVE</button>
-      </div>
-
-      <div class="p-1 bg-gray-50 rounded border text-left">
-        <span class="font-bold text-[9px] block text-gray-600" id="d2SheetStatus">Day-2 Status:</span>
-        <button id="btnStartD2" onclick="startLiveAttendance('Day-2')">START LIVE</button>
-      </div>
-
-      <div class="p-1 bg-gray-50 rounded border text-left">
-        <span class="font-bold text-[9px] block text-gray-600" id="d3SheetStatus">Day-3 Status:</span>
-        <button id="btnStartD3" onclick="startLiveAttendance('Day-3')">START LIVE</button>
-      </div>
-
-      <div class="p-1 bg-gray-50 rounded border text-left">
-        <span class="font-bold text-[9px] block text-gray-600" id="pmSheetStatus">Presidents Meet Status:</span>
-        <button id="btnStartPM" onclick="startLiveAttendance('Presidents Meet')">START LIVE</button>
+    <div id="adminTrainingGrid" class="grid grid-cols-2 gap-1 mb-4">
+      <div class="col-span-2 p-2 bg-gray-50 rounded border text-center text-[11px] font-bold text-gray-500">
+        Training list loading...
       </div>
     </div>
 
     <div class="bg-blue-50 p-2.5 rounded border border-blue-200 mb-4">
-      <label class="block text-[11px] font-bold text-blue-900 mb-1">Filter Report By Day:</label>
+      <label class="block text-[11px] font-bold text-blue-900 mb-1">Filter Report By Training:</label>
 
       <div class="flex gap-2 mb-2">
         <select id="reportDayFilter" onchange="loadReport()" class="flex-grow border p-1 rounded bg-white text-xs font-bold text-gray-700">
-          <option value="Day-1">Day-1 Attendance Report</option>
-          <option value="Day-2">Day-2 Attendance Report</option>
-          <option value="Day-3">Day-3 Attendance Report</option>
-          <option value="Presidents Meet">Presidents Meet Attendance Report</option>
+          <option value="">Report training loading...</option>
         </select>
 
         <button onclick="loadReport()" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-green-700 transition">
